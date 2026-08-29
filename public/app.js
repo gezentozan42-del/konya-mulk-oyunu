@@ -113,7 +113,7 @@ function tileSubtitle(tile) {
 }
 function buildings(asset) {
   if (!asset?.level) return '';
-  return asset.level === 5 ? '🏨' : '⌂'.repeat(asset.level);
+  return asset.level === 5 ? 'OTEL' : `${asset.level} EV`;
 }
 function renderBoard() {
   E.board.querySelectorAll('.tile').forEach(tile => tile.remove());
@@ -124,7 +124,9 @@ function renderBoard() {
     el.className = `tile ${[0,10,20,30].includes(index) ? 'corner' : ''} ${['chance','chest','tax','freeParking','goToJail'].includes(tile.type) ? 'special' : ''} ${asset?.mortgaged ? 'mortgaged' : ''} ${currentPosition === index && state.started ? 'current' : ''}`;
     el.style.gridRow = row; el.style.gridColumn = column; el.dataset.tileIndex = index;
     el.style.setProperty('--tile-accent', groupColor(tile));
-    el.innerHTML = `${isBuyable(tile) ? `<span class="color-band" style="background:${groupColor(tile)}"></span>` : ''}<strong>${esc(tile.name)}</strong><small>${esc(tileSubtitle(tile))}</small><span class="tile-icon-mini">${TILE_ICONS[tile.type] || '•'}</span>${asset?.level ? `<span class="building-row">${buildings(asset)}</span>` : ''}${owner ? `<span class="owner-markers"><i class="owner-dot" title="${esc(owner.name)}" style="background:${PLAYER_COLORS[owner.color]}"></i></span>` : ''}`;
+    el.style.setProperty('--owner-color', owner ? PLAYER_COLORS[owner.color] : 'transparent');
+    el.classList.toggle('owned', Boolean(owner));
+    el.innerHTML = `${isBuyable(tile) ? `<span class="color-band" style="background:${groupColor(tile)}"></span>` : ''}<strong>${esc(tile.name)}</strong><small>${esc(tileSubtitle(tile))}</small><span class="tile-icon-mini">${TILE_ICONS[tile.type] || '•'}</span>${asset?.level ? `<span class="building-row ${asset.level === 5 ? 'hotel' : ''}"><i>⌂</i><b>${buildings(asset)}</b></span>` : ''}${owner ? `<span class="owner-markers"><i class="owner-dot" title="${esc(owner.name)}" style="background:${PLAYER_COLORS[owner.color]}"></i><b>${esc(owner.name.slice(0, 2).toUpperCase())}</b></span>` : ''}`;
     el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
     E.board.appendChild(el);
   });
@@ -192,7 +194,7 @@ function renderPropertyCard(index = selectedTileIndex) {
   E.propertyCardMeta.textContent = `${groupLabel(tile)}${owner ? ` · Sahibi: ${owner.name}` : ''}`;
   if (tile.type === 'property') {
     const ownerLine = asset ? (asset.mortgaged ? 'İpotekli' : asset.level === 5 ? 'Otel kurulu' : asset.level ? `${asset.level} ev kurulu` : 'Arsa') : 'Satışta';
-    E.propertyCardBody.innerHTML = `<div class="property-price"><span>Satın alma</span><b>${money(tile.price)}</b></div><div class="rent-heading"><span>KİRA TABLOSU</span><small>${esc(ownerLine)}</small></div><div class="rent-grid">${rentRows(tile, asset)}</div><div class="property-foot"><span>Ev maliyeti <b>${money(tile.buildCost)}</b></span><span>İpotek <b>${money(Math.floor(tile.price / 2))}</b></span></div>`;
+    E.propertyCardBody.innerHTML = `<div class="property-price"><span>Satın alma</span><b>${money(tile.price)}</b></div><div class="rent-heading"><span>KİRA TABLOSU</span><small>${esc(ownerLine)}</small></div><div class="rent-grid">${rentRows(tile, asset)}</div><div class="property-foot"><span>Ev maliyeti <b>${money(tile.buildCost)}</b></span><span>Otel maliyeti <b>${money(tile.buildCost)}</b></span><span>İpotek <b>${money(Math.floor(tile.price / 2))}</b></span></div>`;
   } else if (tile.type === 'station') {
     E.propertyCardBody.innerHTML = `<div class="property-price"><span>Satın alma</span><b>${money(tile.price)}</b></div><div class="rent-heading"><span>İSTASYON KİRASI</span><small>${owner ? `${assetEntries(owner.id).filter(entry => entry.tile.type === 'station').length} istasyon sende` : 'Sahip sayısına göre'}</small></div><div class="rent-grid">${rentRows(tile, asset)}</div>`;
   } else if (tile.type === 'utility') {

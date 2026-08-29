@@ -27,6 +27,10 @@ test('tapular dokununca kira kartı ve renkli takas alanı açar', () => {
   assert.match(app, /trade-asset/);
   assert.match(css, /\.property-card\{/);
   assert.match(css, /\.trade-swatch\{/);
+  assert.match(app, /Otel maliyeti/);
+  assert.match(app, /owner-markers/);
+  assert.match(css, /\.tile\.owned\{/);
+  assert.match(css, /\.building-row\.hotel/);
 });
 
 test('kart hareketleri tam rota ile hızlı animasyonlanır', () => {
