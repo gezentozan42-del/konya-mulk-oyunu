@@ -244,6 +244,9 @@ io.on('connection', socket => {
   action(socket, 'mortgage', ({ index }) => {
     const { room, player } = session(socket); const notification = game.mortgage(room, player.id, index); broadcast(room, notification);
   });
+  action(socket, 'sell-to-bank', ({ index }) => {
+    const { room, player } = session(socket); const notification = game.sellToBank(room, player.id, index); broadcast(room, notification);
+  });
   action(socket, 'unmortgage', ({ index }) => {
     const { room, player } = session(socket); const notification = game.unmortgage(room, player.id, index); broadcast(room, notification);
   });

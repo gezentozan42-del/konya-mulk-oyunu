@@ -44,3 +44,9 @@ test('telefon görünümünde tahta ekran genişliğine sığar', () => {
   assert.match(css, /@media\(max-width:560px\).*?\.board-shell\{min-width:0;width:100%\}/s);
   assert.match(css, /\.board-viewport\{overflow:hidden\}/);
 });
+
+test('ipotekli tapu bankaya satılabilir', () => {
+  assert.match(app, /sell-to-bank/);
+  assert.match(app, /Bankaya sat/);
+  assert.match(css, /\.bank-sale/);
+});

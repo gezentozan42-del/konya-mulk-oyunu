@@ -4,6 +4,8 @@
 
 Tahtadaki karelere dokununca kira, ev/otel maliyeti ve sahiplik bilgileri açılır. Önemli satın alma, kira ve takas olayları masa üzerindeki akış çerçevesinde görünür; kartların hedef hamleleri piyonun kare kare ilerlemesiyle izlenir. Telefon görünümünde renk grupları yüksek kontrastlı ve takas mülkleri renk etiketlidir.
 
+İpotekli tapular portföyden bankaya satılabilir; satışta tapu silinir ve banka ipotek bedelini öder.
+
 ## Railway kurulumu
 
 1. Bu klasörü bir GitHub deposuna gönderin ve Railway'de **Deploy from GitHub Repo** ile seçin.

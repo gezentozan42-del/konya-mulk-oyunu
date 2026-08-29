@@ -566,6 +566,20 @@ function mortgage(room, playerId, index) {
     message:`${player.name} ${moneyText(Math.floor(tile.price / 2))} aldı.`
   });
 }
+function sellToBank(room, playerId, index) {
+  const player = playerById(room, playerId), tile = board[Number(index)], asset = room.assets[String(index)];
+  if (!player || !tile || !asset || asset.ownerId !== playerId || !asset.mortgaged) throw new Error('Bankaya satış için tapu önce ipotekli olmalı.');
+  if ((asset.level || 0) > 0) throw new Error('Binalı tapu bankaya satılamaz; önce binaları satmalısın.');
+  const amount = Math.floor(tile.price / 2);
+  delete room.assets[String(index)];
+  player.money += amount;
+  log(room, `${player.name}, ${tile.name} tapusunu bankaya sattı ve ${moneyText(amount)} aldı.`, 'sell');
+  touch(room);
+  return notify(room, {
+    kind:'sell', title:'Bankaya Satış', cardTitle:`${tile.name} bankaya devredildi`,
+    message:`${player.name} ipotek bedeli olarak ${moneyText(amount)} aldı.`
+  });
+}
 function unmortgage(room, playerId, index) {
   const player = playerById(room, playerId), tile = board[Number(index)], asset = room.assets[String(index)];
   if (!player || !tile || !asset || asset.ownerId !== playerId || !asset.mortgaged) throw new Error('Bu mülkün ipoteği kaldırılamaz.');
@@ -676,6 +690,6 @@ module.exports = {
   publicState, playerById, activePlayers, ownsGroup, calculateRent, startGame, roll,
   payJail, buy, startAuction, auctionBid, auctionPass, finishAuctionIfReady, endTurn,
   skipDisconnected,
-  build, sellBuilding, mortgage, unmortgage, proposeTrade, respondTrade, bankrupt, leaveRoom,
+  build, sellBuilding, mortgage, sellToBank, unmortgage, proposeTrade, respondTrade, bankrupt, leaveRoom,
   applyCard, resolveLanding, log, notify, touch, assetValue
 };

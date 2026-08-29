@@ -125,6 +125,19 @@ test('renk grubu tamamlanmadan bina kurulamaz', () => {
   assert.equal(first.money, 1450);
 });
 
+test('ipotekli tapu bankaya satılır ve ipotek bedeli ödenir', () => {
+  const { room, first } = roomWithTwo();
+  room.assets['3'] = { ownerId: first.id, level: 0, mortgaged: false };
+  game.mortgage(room, first.id, 3);
+  assert.equal(first.money, 1530);
+  const notification = game.sellToBank(room, first.id, 3);
+  assert.equal(first.money, 1560);
+  assert.equal(room.assets['3'], undefined);
+  assert.equal(notification.kind, 'sell');
+  assert.match(notification.message, /₺30/);
+  assert.throws(() => game.sellToBank(room, first.id, 3), /ipotekli olmalı/);
+});
+
 test('iflas eden oyuncunun mülkleri temizlenir ve kazanan belirlenir', () => {
   const { room, first, second } = roomWithTwo();
   room.assets['1'] = { ownerId: first.id, level: 0, mortgaged: false };

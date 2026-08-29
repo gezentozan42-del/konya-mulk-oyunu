@@ -14,7 +14,7 @@ const GROUP_COLORS = {
 const PLAYER_COLORS = ['#58a6ff','#ff6b6b','#a878ff','#f6c453','#45d483'];
 const PIP_MAP = {1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 const TILE_ICONS = {start:'➜',property:'⌂',station:'◆',utility:'⚡',tax:'₺',chance:'?',chest:'▣',jail:'◷',freeParking:'♨',goToJail:'!'};
-const CARD_ICONS = {chance:'?',chest:'▣',winner:'♛',system:'◆',trade:'⇄',jail:'!',buy:'₺',rent:'↔',money:'₺',build:'⌂',mortgage:'₺',leave:'↩',auction:'◆'};
+const CARD_ICONS = {chance:'?',chest:'▣',winner:'♛',system:'◆',trade:'⇄',jail:'!',buy:'₺',rent:'↔',money:'₺',build:'⌂',mortgage:'₺',sell:'₺',leave:'↩',auction:'◆'};
 
 let state = null, previousState = null, myPlayerId = null, roomCode = null, resumeToken = null;
 let rolling = false, rollingTimer = null, animationVersion = 0, audioContext = null;
@@ -142,8 +142,15 @@ function renderAssets() {
   const entries = assetEntries(myPlayerId);
   const value = entries.reduce((total, entry) => total + Math.floor((entry.tile.price || 0) / 2) + (entry.asset.level || 0) * Math.floor((entry.tile.buildCost || 0) / 2), 0);
   E.portfolioValue.textContent = money(value);
-  E.myAssets.innerHTML = entries.length ? entries.map(({ index, asset, tile }) => `<article class="asset-card" style="--asset-color:${groupColor(tile)}"><div class="asset-card-head"><div><h4>${esc(tile.name)}</h4><small>${esc(tile.group || (tile.type === 'station' ? 'Ulaşım' : 'Hizmet'))} · ${asset.mortgaged ? 'İpotekli' : asset.level === 5 ? 'Otel' : asset.level ? `${asset.level} ev` : 'Arsa'}</small></div><b>${money(tile.price)}</b></div><div class="asset-actions">${tile.type === 'property' ? `<button data-action="build" data-index="${index}">+ Ev/Otel</button><button data-action="sell-building" data-index="${index}">− Bina</button>` : ''}${asset.mortgaged ? `<button data-action="unmortgage" data-index="${index}">İpoteği kaldır</button>` : `<button data-action="mortgage" data-index="${index}">İpotek et</button>`}</div></article>`).join('') : '<div class="empty-state">Henüz bir mülkün yok.<br>Tahtada boş bir mülke geldiğinde satın alabilirsin.</div>';
-  E.myAssets.querySelectorAll('button').forEach(button => button.addEventListener('click', () => emitAction(button.dataset.action, { index:Number(button.dataset.index) })));
+  E.myAssets.innerHTML = entries.length ? entries.map(({ index, asset, tile }) => `<article class="asset-card" style="--asset-color:${groupColor(tile)}"><div class="asset-card-head"><div><h4>${esc(tile.name)}</h4><small>${esc(tile.group || (tile.type === 'station' ? 'Ulaşım' : 'Hizmet'))} · ${asset.mortgaged ? `İpotekli · Banka ${money(Math.floor(tile.price / 2))}` : asset.level === 5 ? 'Otel' : asset.level ? `${asset.level} ev` : 'Arsa'}</small></div><b>${money(tile.price)}</b></div><div class="asset-actions">${tile.type === 'property' && !asset.mortgaged ? `<button data-action="build" data-index="${index}">+ Ev/Otel</button><button data-action="sell-building" data-index="${index}">− Bina</button>` : ''}${asset.mortgaged ? `<button data-action="unmortgage" data-index="${index}">İpoteği kaldır</button><button class="bank-sale" data-action="sell-to-bank" data-index="${index}">Bankaya sat +${money(Math.floor(tile.price / 2))}</button>` : `<button data-action="mortgage" data-index="${index}">İpotek et</button>`}</div></article>`).join('') : '<div class="empty-state">Henüz bir mülkün yok.<br>Tahtada boş bir mülke geldiğinde satın alabilirsin.</div>';
+  E.myAssets.querySelectorAll('button').forEach(button => button.addEventListener('click', () => {
+    const index = Number(button.dataset.index);
+    if (button.dataset.action === 'sell-to-bank') {
+      const amount = Math.floor((state.board[index]?.price || 0) / 2);
+      if (!confirm(`Tapuyu bankaya ${money(amount)} karşılığında satmak istiyor musun?`)) return;
+    }
+    emitAction(button.dataset.action, { index });
+  }));
 }
 function renderTrade() {
   const others = state.players.filter(item => item.id !== myPlayerId && !item.bankrupt), old = E.tradeTarget.value;
@@ -216,7 +223,7 @@ function hidePropertyCard() {
   E.propertyModal.classList.add('hidden');
 }
 function logAccent(kind) {
-  return ({buy:'#f0bd55',rent:'#ff6e70',money:'#f0bd55',trade:'#a878ff',build:'#44df9b',auction:'#f0bd55',leave:'#ff6e70',jail:'#ff6e70',roll:'#44df9b'})[kind] || '#9bb0a7';
+  return ({buy:'#f0bd55',rent:'#ff6e70',money:'#f0bd55',sell:'#f0bd55',trade:'#a878ff',build:'#44df9b',auction:'#f0bd55',leave:'#ff6e70',jail:'#ff6e70',roll:'#44df9b'})[kind] || '#9bb0a7';
 }
 function renderTableFeed() {
   const items = (state.log || []).slice(-3).reverse();
@@ -402,7 +409,7 @@ function showNextCard() {
   E.noticeType.textContent = String(notification.title || 'OYUN BİLDİRİMİ').toUpperCase();
   E.noticeTitle.textContent = notification.cardTitle || notification.title || 'Yeni olay';
   E.noticeMessage.textContent = notification.message || '';
-  sound(notification.kind === 'winner' ? 'win' : ['buy','rent','money','build','mortgage'].includes(notification.kind) ? 'cash' : 'card');
+  sound(notification.kind === 'winner' ? 'win' : ['buy','rent','money','build','mortgage','sell'].includes(notification.kind) ? 'cash' : 'card');
   if (notification.kind === 'winner') launchConfetti();
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(hideTableNotice, duration);
