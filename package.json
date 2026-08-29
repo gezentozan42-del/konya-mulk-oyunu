@@ -1,12 +1,12 @@
 {
   "name": "konya-mulk-oyunu-40",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": true,
   "description": "Konya temali, 40 karelik, 2-5 kisilik çevrimiçi emlak oyunu.",
   "main": "server.js",
   "scripts": {
     "postinstall": "node inject-enhancements.js",
-    "start": "node server.js"
+    "start": "node inject-enhancements.js && node server.js"
   },
   "engines": {
     "node": ">=20"
