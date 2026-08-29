@@ -4,7 +4,7 @@ const socket = io({ transports: ['websocket', 'polling'] });
 const $ = id => document.getElementById(id);
 const E = Object.fromEntries([
   'connectionBar','lobbyView','gameView','nameInput','codeInput','createBtn','joinBtn','loginStatus','roomCode','copyCodeBtn','voiceStatus','voiceBtn','muteBtn','shareBtn','exitBtn',
-  'turnBanner','turnText','turnHint','board','tokenLayer','die1','die2','diceTotal','pot','turnNumber','tableNotice','noticeSymbol','noticeType','noticeTitle','noticeMessage','propertyCard','propertyCardClose','propertyCardType','propertyCardTitle','propertyCardMeta','propertyCardBody','tableFeedItems','tileIcon','tileName','tileInfo','startBtn','payJailBtn','rollBtn','buyBtn','auctionBtn','endBtn','skipBtn','bankruptBtn','auctionBox','incomingTrade','playerCount','players','portfolioValue','myAssets','tradeTarget','offerCash','requestCash','offerAssets','requestAssets','tradeBtn','chat','chatForm','chatInput','log','toastStack','confetti'
+  'turnBanner','turnText','turnHint','board','tokenLayer','die1','die2','diceTotal','pot','turnNumber','tableNotice','noticeSymbol','noticeType','noticeTitle','noticeMessage','propertyModal','propertyModalScrim','propertyCard','propertyCardClose','propertyCardType','propertyCardTitle','propertyCardMeta','propertyCardBody','tableFeedItems','tileIcon','tileName','tileInfo','startBtn','payJailBtn','rollBtn','buyBtn','auctionBtn','endBtn','skipBtn','bankruptBtn','auctionBox','incomingTrade','playerCount','players','portfolioValue','myAssets','tradeTarget','offerCash','requestCash','offerAssets','requestAssets','tradeBtn','chat','chatForm','chatInput','log','toastStack','confetti'
 ].map(id => [id, $(id)]));
 
 const GROUP_COLORS = {
@@ -126,8 +126,6 @@ function renderBoard() {
     el.style.setProperty('--tile-accent', groupColor(tile));
     el.innerHTML = `${isBuyable(tile) ? `<span class="color-band" style="background:${groupColor(tile)}"></span>` : ''}<strong>${esc(tile.name)}</strong><small>${esc(tileSubtitle(tile))}</small><span class="tile-icon-mini">${TILE_ICONS[tile.type] || '•'}</span>${asset?.level ? `<span class="building-row">${buildings(asset)}</span>` : ''}${owner ? `<span class="owner-markers"><i class="owner-dot" title="${esc(owner.name)}" style="background:${PLAYER_COLORS[owner.color]}"></i></span>` : ''}`;
     el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
-    el.addEventListener('click', () => showPropertyCard(index));
-    el.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showPropertyCard(index); } });
     E.board.appendChild(el);
   });
 }
@@ -204,9 +202,16 @@ function renderPropertyCard(index = selectedTileIndex) {
   }
   E.propertyCard.classList.remove('hidden');
 }
+function showPropertyCard(index) {
+  if (!state?.board[index]) return;
+  selectedTileIndex = index;
+  renderPropertyCard(index);
+  E.propertyModal.classList.remove('hidden');
+  requestAnimationFrame(() => E.propertyCardClose.focus({ preventScroll:true }));
+}
 function hidePropertyCard() {
   selectedTileIndex = null;
-  E.propertyCard.classList.add('hidden');
+  E.propertyModal.classList.add('hidden');
 }
 function logAccent(kind) {
   return ({buy:'#f0bd55',rent:'#ff6e70',money:'#f0bd55',trade:'#a878ff',build:'#44df9b',auction:'#f0bd55',leave:'#ff6e70',jail:'#ff6e70',roll:'#44df9b'})[kind] || '#9bb0a7';
@@ -245,11 +250,20 @@ function render() {
   E.bankruptBtn.classList.toggle('hidden', !(myTurn && me?.money < 0));
   if (state.lastRoll) E.diceTotal.textContent = `${state.lastRoll[0]} + ${state.lastRoll[1]} = ${state.lastRoll[0] + state.lastRoll[1]}`; else E.diceTotal.textContent = '—';
   renderBoard(); renderPlayers(); renderAssets(); renderTrade(); renderAuction(); renderIncomingTrade(); renderChatAndLog(); renderTableFeed(); ensureTokens();
-  if (selectedTileIndex !== null && !E.propertyCard.classList.contains('hidden')) renderPropertyCard(selectedTileIndex);
+  if (selectedTileIndex !== null && !E.propertyModal.classList.contains('hidden')) renderPropertyCard(selectedTileIndex);
 }
 
 E.tradeTarget.addEventListener('change', () => state && renderTrade());
 E.propertyCardClose.addEventListener('click', hidePropertyCard);
+E.propertyModalScrim.addEventListener('click', hidePropertyCard);
+E.board.addEventListener('click', event => {
+  const tile = event.target.closest('.tile');
+  if (tile) showPropertyCard(Number(tile.dataset.tileIndex));
+});
+E.board.addEventListener('keydown', event => {
+  const tile = event.target.closest('.tile');
+  if (tile && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); showPropertyCard(Number(tile.dataset.tileIndex)); }
+});
 document.addEventListener('keydown', event => { if (event.key === 'Escape') hidePropertyCard(); });
 E.tradeBtn.addEventListener('click', () => {
   const toId = E.tradeTarget.value; if (!toId) return;

@@ -76,11 +76,6 @@
                   </div>
                   <i class="notice-timer" aria-hidden="true"></i>
                 </div>
-                <div id="propertyCard" class="property-card hidden" role="dialog" aria-live="polite" aria-label="Tapu bilgisi">
-                  <button id="propertyCardClose" class="property-card-close" type="button" aria-label="Tapu kartını kapat">×</button>
-                  <div class="property-card-top"><span class="property-card-accent"></span><div><small id="propertyCardType">TAPU BİLGİSİ</small><h3 id="propertyCardTitle">Mülk</h3><p id="propertyCardMeta">Grup</p></div></div>
-                  <div id="propertyCardBody" class="property-card-body"></div>
-                </div>
                 <div class="dice-stage">
                   <div class="die" id="die1" aria-label="Birinci zar"></div>
                   <div class="die" id="die2" aria-label="İkinci zar"></div>
@@ -142,6 +137,14 @@
 
   <div id="toastStack" class="toast-stack" aria-live="polite"></div>
   <div id="confetti" class="confetti" aria-hidden="true"></div>
+  <div id="propertyModal" class="property-modal hidden" role="dialog" aria-modal="true" aria-label="Tapu bilgisi">
+    <button id="propertyModalScrim" class="property-modal-scrim" type="button" aria-label="Tapu penceresini kapat"></button>
+    <section id="propertyCard" class="property-card" aria-live="polite">
+      <button id="propertyCardClose" class="property-card-close" type="button" aria-label="Tapu kartını kapat">×</button>
+      <div class="property-card-top"><span class="property-card-accent"></span><div><small id="propertyCardType">TAPU BİLGİSİ</small><h3 id="propertyCardTitle">Mülk</h3><p id="propertyCardMeta">Grup</p></div></div>
+      <div id="propertyCardBody" class="property-card-body"></div>
+    </section>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/app.js"></script>

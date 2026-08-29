@@ -18,9 +18,12 @@ test('oyun bildirimleri kapatılması gereken tam ekran pencere değildir', () =
 });
 
 test('tapular dokununca kira kartı ve renkli takas alanı açar', () => {
+  assert.match(html, /id="propertyModal"/);
   assert.match(html, /id="propertyCard"/);
   assert.match(html, /id="propertyCardBody"/);
   assert.match(app, /showPropertyCard\(index\)/);
+  assert.match(app, /propertyModal\.classList\.remove\('hidden'\)/);
+  assert.match(app, /E\.board\.addEventListener\('click'/);
   assert.match(app, /trade-asset/);
   assert.match(css, /\.property-card\{/);
   assert.match(css, /\.trade-swatch\{/);
