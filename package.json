@@ -1,18 +1,27 @@
 {
-  "name": "konya-mulk-oyunu-40",
-  "version": "3.0.0",
+  "name": "konya-mulk-oyunu",
+  "version": "2.0.0",
   "private": true,
-  "description": "Konya temali, 40 karelik, 2-5 kisilik çevrimiçi emlak oyunu.",
+  "description": "Railway üzerinde çalışan gerçek zamanlı Konya temalı mülk oyunu",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "postinstall": "node apply-fixes.js",
-    "start": "node apply-fixes.js && node server.js"
+    "dev": "node preview.js",
+    "start": "node server.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check game.js && node --check public/app.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "express": "^4.21.2",
+    "compression": "^1.8.1",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "pg": "^8.16.3",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
   }
 }

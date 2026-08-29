@@ -1,0 +1,373 @@
+'use strict';
+
+const socket = io({ transports: ['websocket', 'polling'] });
+const $ = id => document.getElementById(id);
+const E = Object.fromEntries([
+  'connectionBar','lobbyView','gameView','nameInput','codeInput','createBtn','joinBtn','loginStatus','roomCode','copyCodeBtn','voiceStatus','voiceBtn','muteBtn','shareBtn',
+  'turnBanner','turnText','turnHint','board','tokenLayer','die1','die2','diceTotal','pot','turnNumber','tileIcon','tileName','tileInfo','startBtn','payJailBtn','rollBtn','buyBtn','auctionBtn','endBtn','skipBtn','bankruptBtn','auctionBox','incomingTrade','playerCount','players','portfolioValue','myAssets','tradeTarget','offerCash','requestCash','offerAssets','requestAssets','tradeBtn','chat','chatForm','chatInput','log','cardOverlay','eventCard','closeCardBtn','cardSymbol','cardType','cardTitle','cardMessage','cardPlayer','toastStack','confetti'
+].map(id => [id, $(id)]));
+
+const GROUP_COLORS = {
+  'Selçuklu-I':'#9b7352','Selçuklu-II':'#54bce8','Meram-I':'#de78ae','Karatay-I':'#e68b37',
+  'Merkez-I':'#df4d54','Karatay-II':'#e8cf51','Merkez-II':'#54b86b','Prestij':'#3e72cf',station:'#8d9a95',utility:'#8774c8'
+};
+const PLAYER_COLORS = ['#58a6ff','#ff6b6b','#a878ff','#f6c453','#45d483'];
+const PIP_MAP = {1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
+const TILE_ICONS = {start:'➜',property:'⌂',station:'◆',utility:'⚡',tax:'₺',chance:'?',chest:'▣',jail:'◷',freeParking:'♨',goToJail:'!'};
+const CARD_ICONS = {chance:'?',chest:'▣',winner:'♛',system:'◆',trade:'⇄',jail:'!'};
+
+let state = null, previousState = null, myPlayerId = null, roomCode = null, resumeToken = null;
+let rolling = false, rollingTimer = null, animationVersion = 0, audioContext = null;
+let localStream = null, micMuted = false, iceServers = null;
+const tokenElements = new Map(), peers = new Map(), pendingCandidates = new Map(), notificationQueue = [];
+
+function esc(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+function money(value) { return `₺${Math.round(Number(value) || 0).toLocaleString('tr-TR')}`; }
+function my() { return state?.players.find(player => player.id === myPlayerId); }
+function player(id) { return state?.players.find(item => item.id === id); }
+function ownerName(id) { return player(id)?.name || 'Banka'; }
+function isBuyable(tile) { return ['property','station','utility'].includes(tile?.type); }
+function playerColor(id) { const item = player(id); return PLAYER_COLORS[item?.color ?? 0]; }
+function assetEntries(ownerId) { return Object.entries(state?.assets || {}).filter(([, asset]) => asset.ownerId === ownerId).map(([index, asset]) => ({ index:Number(index), asset, tile:state.board[Number(index)] })); }
+function propertyCount(id) { return assetEntries(id).length; }
+function saveSession(data) { localStorage.setItem('konyaMulkSessionV2', JSON.stringify(data)); }
+function loadSession() { try { return JSON.parse(localStorage.getItem('konyaMulkSessionV2') || 'null'); } catch { return null; } }
+function setStatus(message, error = false) { E.loginStatus.textContent = message; E.loginStatus.classList.toggle('error', error); }
+function toast(title, message = '') {
+  const item = document.createElement('div'); item.className = 'toast';
+  item.innerHTML = `<b>${esc(title)}</b>${message ? `<span>${esc(message)}</span>` : ''}`;
+  E.toastStack.appendChild(item); setTimeout(() => item.remove(), 4200);
+}
+function enterRoom(code) {
+  roomCode = code; E.lobbyView.classList.add('hidden'); E.gameView.classList.remove('hidden'); E.roomCode.textContent = code;
+  history.replaceState(null, '', `?room=${encodeURIComponent(code)}`);
+}
+function authDone(result, name) {
+  myPlayerId = result.playerId; resumeToken = result.resumeToken || resumeToken;
+  enterRoom(result.code); saveSession({ code:result.code, resumeToken, name:name || result.name || '' });
+  if (state) { render(); requestAnimationFrame(() => placeTokens(state.players)); }
+}
+function emitAction(event, data = {}, success) {
+  socket.emit(event, data, result => {
+    if (!result?.ok) { stopDiceRoll(state?.lastRoll || [1,1]); toast('İşlem yapılamadı', result?.error || 'Lütfen tekrar dene.'); return; }
+    success?.(result);
+  });
+}
+
+E.codeInput.addEventListener('input', event => { event.target.value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+E.createBtn.addEventListener('click', () => {
+  const name = E.nameInput.value.trim(); if (!name) return setStatus('Önce oyuncu adını yaz.', true);
+  E.createBtn.disabled = true; setStatus('Masa kuruluyor…');
+  socket.emit('create-room', { name }, result => { E.createBtn.disabled = false; if (result?.ok) authDone(result, name); else setStatus(result?.error || 'Masa kurulamadı.', true); });
+});
+E.joinBtn.addEventListener('click', () => {
+  const name = E.nameInput.value.trim(), code = E.codeInput.value.trim().toUpperCase();
+  if (!name || code.length !== 5) return setStatus('Adını ve 5 haneli oda kodunu yaz.', true);
+  E.joinBtn.disabled = true; setStatus('Masaya bağlanılıyor…');
+  socket.emit('join-room', { name, code }, result => { E.joinBtn.disabled = false; if (result?.ok) authDone(result, name); else setStatus(result?.error || 'Odaya katılınamadı.', true); });
+});
+
+socket.on('connect', () => {
+  E.connectionBar.classList.add('hidden');
+  const params = new URLSearchParams(location.search), saved = loadSession(), queryRoom = params.get('room')?.toUpperCase(), freshJoin = params.get('fresh') === '1';
+  if (!freshJoin && saved?.resumeToken && saved?.code && (!queryRoom || queryRoom === saved.code)) {
+    resumeToken = saved.resumeToken; E.nameInput.value = saved.name || '';
+    socket.emit('resume-room', { code:saved.code, resumeToken:saved.resumeToken }, result => {
+      if (result?.ok) authDone(result, saved.name); else { localStorage.removeItem('konyaMulkSessionV2'); if (queryRoom) E.codeInput.value = queryRoom; }
+    });
+  } else if (queryRoom) E.codeInput.value = queryRoom;
+});
+socket.on('disconnect', () => E.connectionBar.classList.remove('hidden'));
+socket.on('connect_error', () => E.connectionBar.classList.remove('hidden'));
+socket.on('action-error', ({ message }) => { stopDiceRoll(state?.lastRoll || [1,1]); toast('İşlem yapılamadı', message); });
+socket.on('state', nextState => {
+  previousState = state; state = nextState; render();
+  requestAnimationFrame(() => animateTokens(previousState, state));
+  if (state.lastRoll) stopDiceRoll(state.lastRoll); else if (!rolling) { setDie(E.die1, 1); setDie(E.die2, 1); }
+});
+socket.on('game-notification', notification => showGameNotification(notification));
+
+document.querySelectorAll('.panel-tabs button').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('.panel-tabs button').forEach(item => item.classList.toggle('active', item === button));
+  document.querySelectorAll('.panel-page').forEach(page => page.classList.remove('active'));
+  $(`${button.dataset.panel}Panel`).classList.add('active');
+}));
+
+function gridPosition(index) {
+  if (index <= 10) return [11, 11 - index];
+  if (index <= 20) return [21 - index, 1];
+  if (index <= 30) return [1, index - 19];
+  return [index - 29, 11];
+}
+function groupColor(tile) { return GROUP_COLORS[tile.group || tile.type] || '#60756d'; }
+function tileSubtitle(tile) {
+  if (isBuyable(tile)) return money(tile.price);
+  if (tile.amount) return `− ${money(tile.amount)}`;
+  return tile.text || '';
+}
+function buildings(asset) {
+  if (!asset?.level) return '';
+  return asset.level === 5 ? '🏨' : '⌂'.repeat(asset.level);
+}
+function renderBoard() {
+  E.board.querySelectorAll('.tile').forEach(tile => tile.remove());
+  const currentPosition = player(state.turnPlayerId)?.pos;
+  state.board.forEach((tile, index) => {
+    const el = document.createElement('div'), [row, column] = gridPosition(index), asset = state.assets[String(index)];
+    const owner = asset && player(asset.ownerId);
+    el.className = `tile ${[0,10,20,30].includes(index) ? 'corner' : ''} ${['chance','chest','tax','freeParking','goToJail'].includes(tile.type) ? 'special' : ''} ${asset?.mortgaged ? 'mortgaged' : ''} ${currentPosition === index && state.started ? 'current' : ''}`;
+    el.style.gridRow = row; el.style.gridColumn = column; el.dataset.tileIndex = index;
+    el.innerHTML = `${isBuyable(tile) ? `<span class="color-band" style="background:${groupColor(tile)}"></span>` : ''}<strong>${esc(tile.name)}</strong><small>${esc(tileSubtitle(tile))}</small><span class="tile-icon-mini">${TILE_ICONS[tile.type] || '•'}</span>${asset?.level ? `<span class="building-row">${buildings(asset)}</span>` : ''}${owner ? `<span class="owner-markers"><i class="owner-dot" title="${esc(owner.name)}" style="background:${PLAYER_COLORS[owner.color]}"></i></span>` : ''}`;
+    E.board.appendChild(el);
+  });
+}
+function renderPlayers() {
+  E.playerCount.textContent = `${state.players.length} / 5`;
+  E.players.innerHTML = state.players.map(item => {
+    const netWorth = item.money + assetEntries(item.id).reduce((total, entry) => total + (entry.tile.price || 0) + (entry.asset.level || 0) * (entry.tile.buildCost || 0), 0);
+    return `<div class="player-row ${item.id === state.turnPlayerId && state.started ? 'turn' : ''} ${item.id === myPlayerId ? 'me' : ''}" style="--player-color:${PLAYER_COLORS[item.color]}"><div class="player-main"><i class="player-orb"></i><div class="player-name"><b>${esc(item.name)}${item.id === myPlayerId ? ' · SEN' : ''}</b><small>${item.bankrupt ? 'İflas etti' : item.inJail ? `Trafik molası ${item.jailTurns}/3` : `${propertyCount(item.id)} mülk · Değer ${money(netWorth)}`}</small></div><span class="player-money">${money(item.money)}</span></div><i class="online-dot ${item.connected ? 'on' : ''}"></i></div>`;
+  }).join('');
+}
+function renderAssets() {
+  const entries = assetEntries(myPlayerId);
+  const value = entries.reduce((total, entry) => total + Math.floor((entry.tile.price || 0) / 2) + (entry.asset.level || 0) * Math.floor((entry.tile.buildCost || 0) / 2), 0);
+  E.portfolioValue.textContent = money(value);
+  E.myAssets.innerHTML = entries.length ? entries.map(({ index, asset, tile }) => `<article class="asset-card" style="--asset-color:${groupColor(tile)}"><div class="asset-card-head"><div><h4>${esc(tile.name)}</h4><small>${esc(tile.group || (tile.type === 'station' ? 'Ulaşım' : 'Hizmet'))} · ${asset.mortgaged ? 'İpotekli' : asset.level === 5 ? 'Otel' : asset.level ? `${asset.level} ev` : 'Arsa'}</small></div><b>${money(tile.price)}</b></div><div class="asset-actions">${tile.type === 'property' ? `<button data-action="build" data-index="${index}">+ Ev/Otel</button><button data-action="sell-building" data-index="${index}">− Bina</button>` : ''}${asset.mortgaged ? `<button data-action="unmortgage" data-index="${index}">İpoteği kaldır</button>` : `<button data-action="mortgage" data-index="${index}">İpotek et</button>`}</div></article>`).join('') : '<div class="empty-state">Henüz bir mülkün yok.<br>Tahtada boş bir mülke geldiğinde satın alabilirsin.</div>';
+  E.myAssets.querySelectorAll('button').forEach(button => button.addEventListener('click', () => emitAction(button.dataset.action, { index:Number(button.dataset.index) })));
+}
+function renderTrade() {
+  const others = state.players.filter(item => item.id !== myPlayerId && !item.bankrupt), old = E.tradeTarget.value;
+  E.tradeTarget.innerHTML = others.map(item => `<option value="${item.id}">${esc(item.name)}</option>`).join('');
+  if (others.some(item => item.id === old)) E.tradeTarget.value = old;
+  const targetId = E.tradeTarget.value;
+  const checks = entries => entries.map(({ index, tile }) => `<label><input type="checkbox" value="${index}"> ${esc(tile.name)}</label>`).join('') || '<span class="empty-state">Mülk yok</span>';
+  E.offerAssets.innerHTML = checks(assetEntries(myPlayerId)); E.requestAssets.innerHTML = checks(assetEntries(targetId));
+  E.tradeBtn.disabled = !targetId;
+}
+function renderAuction() {
+  const auction = state.auction;
+  E.auctionBox.classList.toggle('hidden', !auction);
+  if (!auction) return;
+  const tile = state.board[auction.tileIndex], passed = auction.passed.map(ownerName).join(', ') || 'Henüz yok';
+  E.auctionBox.innerHTML = `<div class="auction-title">◆ ${esc(tile.name)}</div><div class="auction-meta">En yüksek teklif: <b>${money(auction.highestBid)}</b>${auction.highestBidderId ? ` · ${esc(ownerName(auction.highestBidderId))}` : ''}<br>Çekilenler: ${esc(passed)}</div><div class="auction-controls"><input id="bidAmount" type="number" min="${auction.highestBid + 10}" value="${auction.highestBid + 10}"><button id="bidBtn">Teklif</button><button id="passBtn">Çekil</button></div>`;
+  $('bidBtn').addEventListener('click', () => emitAction('auction-bid', { amount:Number($('bidAmount').value) }));
+  $('passBtn').addEventListener('click', () => emitAction('auction-pass'));
+}
+function renderIncomingTrade() {
+  const trade = state.pendingTrades?.find(item => item.toId === myPlayerId);
+  E.incomingTrade.classList.toggle('hidden', !trade); if (!trade) return;
+  const names = list => list.map(index => state.board[index].name).join(', ') || '—';
+  E.incomingTrade.innerHTML = `<div class="auction-title">⇄ ${esc(ownerName(trade.fromId))} teklif gönderdi</div><div class="auction-meta">Veriyor: ${money(trade.offerCash)} + ${esc(names(trade.offerAssets))}<br>İstiyor: ${money(trade.requestCash)} + ${esc(names(trade.requestAssets))}</div><div class="action-grid"><button class="btn btn-primary" data-answer="yes">Kabul et</button><button class="btn btn-quiet" data-answer="no">Reddet</button></div>`;
+  E.incomingTrade.querySelectorAll('button').forEach(button => button.addEventListener('click', () => emitAction('trade-respond', { tradeId:trade.id, accept:button.dataset.answer === 'yes' })));
+}
+function renderChatAndLog() {
+  E.chat.innerHTML = (state.chat || []).slice(-60).map(message => `<div class="message"><b>${esc(message.name)}</b>${esc(message.text)}</div>`).join('') || '<div class="empty-state">Masa sohbeti burada görünecek.</div>';
+  E.chat.scrollTop = E.chat.scrollHeight;
+  E.log.innerHTML = (state.log || []).slice().reverse().map(item => `<div class="log-item ${esc(item.kind || '')}">${esc(item.msg || item)}</div>`).join('');
+}
+function render() {
+  if (!state) return;
+  const me = my(), current = player(state.turnPlayerId), myTurn = state.started && state.turnPlayerId === myPlayerId && !me?.bankrupt;
+  E.turnBanner.classList.toggle('my-turn', myTurn);
+  E.turnText.textContent = state.winnerId ? `${ownerName(state.winnerId)} kazandı` : state.started ? (myTurn ? 'Sıra sende' : `Sıra ${current?.name || '—'} oyuncusunda`) : 'Oyuncular masada bekleniyor';
+  E.turnHint.textContent = state.started ? (state.phase === 'roll' ? 'Zar bekleniyor' : state.phase === 'purchase' ? 'Satın al veya açık artır' : state.phase === 'auction' ? 'Açık artırma devam ediyor' : 'Hamle tamamlanıyor') : `${state.players.length}/5 oyuncu`;
+  E.pot.textContent = money(state.freeParkingPot); E.turnNumber.textContent = state.started ? state.turnNumber : '—';
+  const tile = me ? state.board[me.pos] : state.board[0], asset = me ? state.assets[String(me.pos)] : null;
+  E.tileIcon.textContent = TILE_ICONS[tile.type] || '•'; E.tileName.textContent = tile.name;
+  E.tileInfo.textContent = isBuyable(tile) ? (asset ? `${asset.ownerId === myPlayerId ? 'Sana ait' : `${ownerName(asset.ownerId)} sahibi`} · ${asset.mortgaged ? 'İpotekli' : 'Aktif'}` : `Satış fiyatı ${money(tile.price)}`) : (tile.text || (tile.amount ? `${money(tile.amount)} ödeme` : 'Özel kare'));
+  const canStart = !state.started && state.hostPlayerId === myPlayerId;
+  E.startBtn.classList.toggle('hidden', !canStart); E.startBtn.disabled = state.players.length < 2;
+  E.rollBtn.classList.toggle('hidden', !state.started); E.rollBtn.disabled = !myTurn || state.phase !== 'roll' || Boolean(state.auction);
+  E.payJailBtn.classList.toggle('hidden', !(myTurn && me?.inJail && state.phase === 'roll')); E.payJailBtn.disabled = (me?.money || 0) < 50;
+  const canBuy = myTurn && state.phase === 'purchase' && isBuyable(tile) && !asset && me.money >= tile.price;
+  E.buyBtn.classList.toggle('hidden', !canBuy);
+  const canAuction = myTurn && state.phase === 'purchase' && isBuyable(tile) && !asset;
+  E.auctionBtn.classList.toggle('hidden', !canAuction);
+  const canEnd = myTurn && Boolean(state.lastRoll) && !state.auction && ['resolved','purchase'].includes(state.phase);
+  E.endBtn.classList.toggle('hidden', !state.started); E.endBtn.disabled = !canEnd;
+  const canSkip = state.started && state.hostPlayerId === myPlayerId && current && !current.connected;
+  E.skipBtn.classList.toggle('hidden', !canSkip);
+  E.bankruptBtn.classList.toggle('hidden', !(myTurn && me?.money < 0));
+  if (state.lastRoll) E.diceTotal.textContent = `${state.lastRoll[0]} + ${state.lastRoll[1]} = ${state.lastRoll[0] + state.lastRoll[1]}`; else E.diceTotal.textContent = '—';
+  renderBoard(); renderPlayers(); renderAssets(); renderTrade(); renderAuction(); renderIncomingTrade(); renderChatAndLog(); ensureTokens();
+}
+
+E.tradeTarget.addEventListener('change', () => state && renderTrade());
+E.tradeBtn.addEventListener('click', () => {
+  const toId = E.tradeTarget.value; if (!toId) return;
+  emitAction('trade-propose', {
+    toId, offerCash:Number(E.offerCash.value) || 0, requestCash:Number(E.requestCash.value) || 0,
+    offerAssets:[...E.offerAssets.querySelectorAll('input:checked')].map(input => Number(input.value)),
+    requestAssets:[...E.requestAssets.querySelectorAll('input:checked')].map(input => Number(input.value))
+  }, () => toast('Teklif gönderildi', `${ownerName(toId)} yanıtladığında burada göreceksin.`));
+});
+E.startBtn.addEventListener('click', () => { sound('start'); emitAction('start-game'); });
+E.rollBtn.addEventListener('click', () => { sound('roll'); startDiceRoll(); emitAction('roll'); });
+E.payJailBtn.addEventListener('click', () => emitAction('pay-jail'));
+E.buyBtn.addEventListener('click', () => { sound('cash'); emitAction('buy'); });
+E.auctionBtn.addEventListener('click', () => emitAction('auction-start'));
+E.endBtn.addEventListener('click', () => emitAction('end-turn'));
+E.skipBtn.addEventListener('click', () => emitAction('skip-disconnected'));
+E.bankruptBtn.addEventListener('click', () => { if (confirm('İflas edip oyundan çekilmek istediğine emin misin?')) emitAction('bankrupt'); });
+E.chatForm.addEventListener('submit', event => { event.preventDefault(); const text = E.chatInput.value.trim(); if (text) { emitAction('chat', { text }); E.chatInput.value = ''; } });
+E.shareBtn.addEventListener('click', shareRoom); E.copyCodeBtn.addEventListener('click', shareRoom);
+async function shareRoom() {
+  const url = `${location.origin}?room=${encodeURIComponent(roomCode)}`, text = `Konya Mülk Oyunu oda kodu: ${roomCode}`;
+  try { if (navigator.share) await navigator.share({ title:'Konya Mülk Oyunu', text, url }); else { await navigator.clipboard.writeText(url); toast('Davet bağlantısı kopyalandı', roomCode); } } catch {}
+}
+
+function createDieFace(el) {
+  if (el.dataset.ready) return;
+  for (let i = 1; i <= 9; i += 1) { const pip = document.createElement('span'); pip.className = 'pip'; pip.dataset.index = i; el.appendChild(pip); }
+  el.dataset.ready = '1';
+}
+function setDie(el, value) {
+  createDieFace(el); el.querySelectorAll('.pip').forEach(pip => { pip.style.opacity = '0'; });
+  (PIP_MAP[value] || []).forEach(index => { const pip = el.querySelector(`[data-index="${index}"]`); if (pip) pip.style.opacity = '1'; });
+}
+function startDiceRoll() {
+  if (rolling) return; rolling = true;
+  [E.die1,E.die2].forEach(die => { die.classList.add('rolling'); die.classList.remove('settle'); });
+  rollingTimer = setInterval(() => { setDie(E.die1, 1 + Math.floor(Math.random() * 6)); setDie(E.die2, 1 + Math.floor(Math.random() * 6)); }, 75);
+}
+function stopDiceRoll(values) {
+  clearInterval(rollingTimer); rollingTimer = null; rolling = false;
+  [E.die1,E.die2].forEach(die => die.classList.remove('rolling'));
+  setDie(E.die1, values?.[0] || 1); setDie(E.die2, values?.[1] || 1);
+  [E.die1,E.die2].forEach(die => { die.classList.remove('settle'); void die.offsetWidth; die.classList.add('settle'); });
+}
+
+function ensureTokens() {
+  const ids = new Set(state.players.map(item => item.id));
+  for (const [id, element] of tokenElements) if (!ids.has(id)) { element.remove(); tokenElements.delete(id); }
+  state.players.forEach(item => {
+    let element = tokenElements.get(item.id);
+    if (!element) {
+      element = document.createElement('div'); element.className = 'player-piece';
+      element.innerHTML = `<i class="pawn-head"></i><i class="pawn-body"></i><i class="pawn-base"></i><span class="piece-name">${esc(item.name)}</span>`;
+      E.tokenLayer.appendChild(element); tokenElements.set(item.id, element);
+    }
+    element.style.setProperty('--player-color', PLAYER_COLORS[item.color]);
+    element.classList.toggle('active', state.started && state.turnPlayerId === item.id);
+    element.style.display = item.bankrupt ? 'none' : 'block';
+  });
+}
+function stackOffsets(count) {
+  return ({1:[[0,0]],2:[[-10,-8],[10,8]],3:[[0,-11],[-11,9],[11,9]],4:[[-10,-10],[10,-10],[-10,10],[10,10]],5:[[0,0],[-13,-12],[13,-12],[-13,12],[13,12]]})[count] || [[0,0]];
+}
+function tileCenter(index, stackIndex = 0, count = 1) {
+  const tile = E.board.querySelector(`[data-tile-index="${index}"]`); if (!tile) return { x:20, y:20 };
+  const boardRect = E.board.getBoundingClientRect(), rect = tile.getBoundingClientRect(), offset = stackOffsets(count)[stackIndex] || [0,0];
+  return { x:rect.left - boardRect.left + rect.width / 2 + offset[0], y:rect.top - boardRect.top + rect.height / 2 + offset[1] };
+}
+function grouped(players) { const groups = {}; players.filter(item => !item.bankrupt).forEach(item => (groups[item.pos] ||= []).push(item.id)); return groups; }
+function placeTokens(players) {
+  const groups = grouped(players);
+  players.filter(item => !item.bankrupt).forEach(item => { const group = groups[item.pos], pos = tileCenter(item.pos, group.indexOf(item.id), group.length), el = tokenElements.get(item.id); if (el) { el.style.left = `${pos.x}px`; el.style.top = `${pos.y}px`; } });
+}
+function movementPath(oldPosition, newPosition) {
+  if (oldPosition === undefined || newPosition === undefined || oldPosition === newPosition) return [newPosition];
+  const distance = (newPosition - oldPosition + 40) % 40;
+  if (distance > 0 && distance <= 14) return Array.from({ length:distance }, (_, index) => (oldPosition + index + 1) % 40);
+  return [newPosition];
+}
+async function animateTokens(oldState, newState) {
+  animationVersion += 1; const version = animationVersion; ensureTokens();
+  if (!oldState) return placeTokens(newState.players);
+  const changed = newState.players.filter(item => { const old = oldState.players.find(candidate => candidate.id === item.id); return old && old.pos !== item.pos && !item.bankrupt; });
+  if (!changed.length) return placeTokens(newState.players);
+  const staged = JSON.parse(JSON.stringify(newState.players));
+  changed.forEach(item => { const old = oldState.players.find(candidate => candidate.id === item.id), current = staged.find(candidate => candidate.id === item.id); current.pos = old.pos; });
+  placeTokens(staged); await new Promise(resolve => setTimeout(resolve, 35));
+  const paths = new Map(changed.map(item => { const old = oldState.players.find(candidate => candidate.id === item.id); return [item.id, movementPath(old.pos, item.pos)]; }));
+  for (let step = 0; step < 15; step += 1) {
+    if (version !== animationVersion) return; let moved = false;
+    changed.forEach(item => { const path = paths.get(item.id), current = staged.find(candidate => candidate.id === item.id); if (step < path.length) { current.pos = path[step]; moved = true; } });
+    if (!moved) break; sound('step'); placeTokens(staged); await new Promise(resolve => setTimeout(resolve, 235));
+  }
+  if (version === animationVersion) placeTokens(newState.players);
+}
+window.addEventListener('resize', () => state && placeTokens(state.players));
+
+function showGameNotification(notification) {
+  if (!notification) return; notificationQueue.push(notification); if (!E.cardOverlay.classList.contains('hidden')) return; showNextCard();
+}
+function showNextCard() {
+  const notification = notificationQueue.shift(); if (!notification) return;
+  E.eventCard.className = `event-card ${notification.kind || 'system'}`;
+  E.cardSymbol.textContent = CARD_ICONS[notification.kind] || '◆';
+  E.cardType.textContent = String(notification.title || 'OYUN BİLDİRİMİ').toUpperCase();
+  E.cardTitle.textContent = notification.cardTitle || notification.title || 'Yeni olay';
+  E.cardMessage.textContent = notification.message || '';
+  E.cardPlayer.textContent = notification.playerName ? `${notification.playerName} için çekildi · Herkese gösterildi` : 'Tüm oyunculara bildirildi';
+  E.cardOverlay.classList.remove('hidden'); sound(notification.kind === 'winner' ? 'win' : 'card');
+  if (notification.kind === 'winner') launchConfetti();
+}
+function closeCard() { E.cardOverlay.classList.add('hidden'); setTimeout(showNextCard, 140); }
+E.closeCardBtn.addEventListener('click', closeCard);
+E.cardOverlay.addEventListener('click', event => { if (event.target === E.cardOverlay) closeCard(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !E.cardOverlay.classList.contains('hidden')) closeCard(); });
+function launchConfetti() {
+  E.confetti.innerHTML = '';
+  const colors = ['#44df9b','#f0bd55','#58a6ff','#ff6b6b','#f5f0e6'];
+  for (let i = 0; i < 85; i += 1) { const piece = document.createElement('i'); piece.style.left = `${Math.random() * 100}%`; piece.style.setProperty('--c', colors[i % colors.length]); piece.style.setProperty('--x', `${(Math.random() - .5) * 300}px`); piece.style.setProperty('--d', `${2.5 + Math.random() * 2.5}s`); piece.style.animationDelay = `${Math.random() * .7}s`; E.confetti.appendChild(piece); }
+  setTimeout(() => { E.confetti.innerHTML = ''; }, 6000);
+}
+
+function sound(kind) {
+  try {
+    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audioContext, now = ctx.currentTime;
+    const patterns = { roll:[[130,.05],[190,.07]],step:[[320,.025]],cash:[[520,.06],[780,.08]],card:[[330,.09],[440,.11],[660,.15]],start:[[260,.07],[390,.1],[520,.15]],win:[[392,.12],[523,.15],[659,.18],[784,.3]] };
+    (patterns[kind] || []).forEach(([frequency,duration], index) => { const oscillator = ctx.createOscillator(), gain = ctx.createGain(); oscillator.type = kind === 'roll' ? 'square' : 'sine'; oscillator.frequency.value = frequency; gain.gain.setValueAtTime(kind === 'step' ? .018 : .045, now + index * .08); gain.gain.exponentialRampToValueAtTime(.0001, now + index * .08 + duration); oscillator.connect(gain).connect(ctx.destination); oscillator.start(now + index * .08); oscillator.stop(now + index * .08 + duration); });
+  } catch {}
+}
+
+async function getIceServers() {
+  if (iceServers) return iceServers;
+  try { const response = await fetch('/api/ice'); const data = await response.json(); iceServers = data.iceServers || []; }
+  catch { iceServers = [{ urls:'stun:stun.cloudflare.com:3478' }]; }
+  return iceServers;
+}
+async function startVoice() {
+  if (!navigator.mediaDevices?.getUserMedia) return toast('Sesli masa desteklenmiyor', 'Tarayıcını güncelleyip HTTPS bağlantısı kullan.');
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true, channelCount:1 }, video:false });
+    await getIceServers(); E.voiceBtn.classList.add('hidden'); E.muteBtn.classList.remove('hidden');
+    E.voiceStatus.classList.add('live'); E.voiceStatus.innerHTML = '<i></i> Sesli masadasın'; socket.emit('voice-ready', {}, response => { if (!response?.ok) toast('Ses bağlantısı kurulamadı', response?.error); });
+  } catch { toast('Mikrofon açılamadı', 'Tarayıcı ayarlarından mikrofon iznini kontrol et.'); }
+}
+E.voiceBtn.addEventListener('click', startVoice);
+E.muteBtn.addEventListener('click', () => {
+  if (!localStream) return; micMuted = !micMuted; localStream.getAudioTracks().forEach(track => { track.enabled = !micMuted; });
+  E.muteBtn.textContent = micMuted ? '🎙️' : '🔇'; E.muteBtn.title = micMuted ? 'Mikrofonu aç' : 'Mikrofonu kapat';
+  E.voiceStatus.innerHTML = micMuted ? '<i></i> Mikrofon kapalı' : '<i></i> Sesli masadasın';
+});
+async function makePeer(id) {
+  if (peers.has(id)) return peers.get(id);
+  const pc = new RTCPeerConnection({ iceServers:await getIceServers() });
+  localStream?.getTracks().forEach(track => pc.addTrack(track, localStream));
+  pc.onicecandidate = event => { if (event.candidate) socket.emit('webrtc-ice', { to:id, candidate:event.candidate }); };
+  pc.ontrack = event => {
+    let audio = document.getElementById(`voice-${id}`); if (!audio) { audio = document.createElement('audio'); audio.id = `voice-${id}`; audio.autoplay = true; audio.playsInline = true; document.body.appendChild(audio); }
+    audio.srcObject = event.streams[0]; audio.play().catch(() => toast('Sesi başlatmak için ekrana dokun', ownerName(id)));
+  };
+  pc.onconnectionstatechange = () => { if (['failed','closed'].includes(pc.connectionState)) closePeer(id); };
+  peers.set(id, pc); return pc;
+}
+function closePeer(id) { peers.get(id)?.close(); peers.delete(id); pendingCandidates.delete(id); document.getElementById(`voice-${id}`)?.remove(); }
+async function addPendingIce(id, pc) { const list = pendingCandidates.get(id) || []; for (const candidate of list) { try { await pc.addIceCandidate(candidate); } catch {} } pendingCandidates.delete(id); }
+socket.on('voice-peers', async ids => {
+  for (const id of ids) { const pc = await makePeer(id); const offer = await pc.createOffer(); await pc.setLocalDescription(offer); socket.emit('webrtc-offer', { to:id, sdp:pc.localDescription }); }
+});
+socket.on('webrtc-offer', async ({ from, sdp }) => {
+  const pc = await makePeer(from); await pc.setRemoteDescription(sdp); await addPendingIce(from, pc); const answer = await pc.createAnswer(); await pc.setLocalDescription(answer); socket.emit('webrtc-answer', { to:from, sdp:pc.localDescription });
+});
+socket.on('webrtc-answer', async ({ from, sdp }) => { const pc = peers.get(from); if (pc) { await pc.setRemoteDescription(sdp); await addPendingIce(from, pc); } });
+socket.on('webrtc-ice', async ({ from, candidate }) => {
+  const pc = await makePeer(from); if (pc.remoteDescription) { try { await pc.addIceCandidate(candidate); } catch {} } else { const list = pendingCandidates.get(from) || []; list.push(candidate); pendingCandidates.set(from, list); }
+});
+socket.on('voice-left', closePeer);
+socket.on('voice-status', ids => { if (!localStream) return; E.voiceStatus.innerHTML = `<i></i> Sesli masa · ${ids.length}`; });
+
+createDieFace(E.die1); createDieFace(E.die2); setDie(E.die1, 1); setDie(E.die2, 1);
