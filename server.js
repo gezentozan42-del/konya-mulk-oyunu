@@ -15,7 +15,10 @@ const rooms = new Map();
 const voiceMembers = new Map();
 const saveTimers = new Map();
 const pool = process.env.DATABASE_URL
-  ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined })
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : undefined,
+    })
   : null;
 
 const app = express();
