@@ -72,3 +72,16 @@ test('kira dokunulmazlığı ve tur başı bina limiti arayüzde görünür', ()
   assert.match(app, /Sadece kendi sıranda bina kurabilirsin/);
   assert.match(css, /\.panel-tabs\{grid-template-columns:repeat\(4,1fr\)\}/);
 });
+
+test('zar kontrolü masanın merkezinde ve tapu sahibi piyon ikonu ile gösterilir', () => {
+  assert.match(html, /id="diceStage"/);
+  assert.match(html, /id="rollBtn" class="btn btn-primary center-roll/);
+  assert.match(html, /id="endBtn" class="btn btn-quiet center-end/);
+  assert.match(app, /function rollFromDice\(\)/);
+  assert.match(app, /E\.endBtn\.classList\.toggle\('hidden', !canEnd\)/);
+  assert.match(app, /tile-owner-pawn/);
+  assert.match(css, /\.tile-owner-pawn\{/);
+  assert.match(css, /\.tile-owner-pawn\{top:-10px/);
+  assert.match(css, /\.tile\{overflow:visible\}/);
+  assert.match(css, /\.tile\.owned:before\{display:none\}/);
+});

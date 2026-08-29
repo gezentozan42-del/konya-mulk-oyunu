@@ -4,7 +4,7 @@ const socket = io({ transports: ['websocket', 'polling'] });
 const $ = id => document.getElementById(id);
 const E = Object.fromEntries([
   'connectionBar','lobbyView','gameView','nameInput','codeInput','createBtn','joinBtn','loginStatus','roomCode','copyCodeBtn','voiceStatus','voiceBtn','muteBtn','shareBtn','exitBtn',
-  'turnBanner','turnText','turnHint','board','tokenLayer','die1','die2','diceTotal','pot','turnNumber','tableNotice','noticeSymbol','noticeType','noticeTitle','noticeMessage','propertyModal','propertyModalScrim','propertyCard','propertyCardClose','propertyCardType','propertyCardTitle','propertyCardMeta','propertyCardBody','tableFeedItems','tileIcon','tileName','tileInfo','startBtn','payJailBtn','rollBtn','buyBtn','auctionBtn','endBtn','skipBtn','bankruptBtn','auctionBox','incomingTrade','playerCount','players','portfolioValue','myAssets','tradeTarget','offerCash','requestCash','offerAssets','requestAssets','tradeBtn','chat','chatForm','chatInput','log','toastStack','confetti'
+  'turnBanner','turnText','turnHint','board','tokenLayer','die1','die2','diceStage','diceTotal','pot','turnNumber','tableNotice','noticeSymbol','noticeType','noticeTitle','noticeMessage','propertyModal','propertyModalScrim','propertyCard','propertyCardClose','propertyCardType','propertyCardTitle','propertyCardMeta','propertyCardBody','tableFeedItems','tileIcon','tileName','tileInfo','startBtn','payJailBtn','rollBtn','buyBtn','auctionBtn','endBtn','skipBtn','bankruptBtn','auctionBox','incomingTrade','playerCount','players','portfolioValue','myAssets','tradeTarget','offerCash','requestCash','offerAssets','requestAssets','tradeBtn','chat','chatForm','chatInput','log','toastStack','confetti'
 ].map(id => [id, $(id)]));
 
 const GROUP_COLORS = {
@@ -124,10 +124,11 @@ function renderBoard() {
     const owner = asset && player(asset.ownerId);
     el.className = `tile ${[0,10,20,30].includes(index) ? 'corner' : ''} ${['chance','chest','tax','freeParking','goToJail'].includes(tile.type) ? 'special' : ''} ${asset?.mortgaged ? 'mortgaged' : ''} ${currentPosition === index && state.started ? 'current' : ''}`;
     el.style.gridRow = row; el.style.gridColumn = column; el.dataset.tileIndex = index;
+    el.title = owner ? `${tile.name} · Sahibi: ${owner.name}` : tile.name;
     el.style.setProperty('--tile-accent', groupColor(tile));
     el.style.setProperty('--owner-color', owner ? PLAYER_COLORS[owner.color] : 'transparent');
     el.classList.toggle('owned', Boolean(owner));
-    el.innerHTML = `${isBuyable(tile) ? `<span class="color-band" style="background:${groupColor(tile)}"></span>` : ''}<strong>${esc(tile.name)}</strong><small>${esc(tileSubtitle(tile))}</small><span class="tile-icon-mini">${TILE_ICONS[tile.type] || '•'}</span>${asset?.level ? `<span class="building-row ${asset.level === 5 ? 'hotel' : ''}"><i>⌂</i><b>${buildings(asset)}</b></span>` : ''}`;
+    el.innerHTML = `${isBuyable(tile) ? `<span class="color-band" style="background:${groupColor(tile)}"></span>` : ''}<strong>${esc(tile.name)}</strong><small>${esc(tileSubtitle(tile))}</small>${owner ? `<span class="tile-owner-pawn" aria-label="${esc(owner.name)} sahibi">♟</span>` : ''}<span class="tile-icon-mini">${TILE_ICONS[tile.type] || '•'}</span>${asset?.level ? `<span class="building-row ${asset.level === 5 ? 'hotel' : ''}"><i>⌂</i><b>${buildings(asset)}</b></span>` : ''}`;
     el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
     E.board.appendChild(el);
   });
@@ -260,13 +261,15 @@ function render() {
   const canStart = !state.started && state.hostPlayerId === myPlayerId;
   E.startBtn.classList.toggle('hidden', !canStart); E.startBtn.disabled = state.players.length < 2;
   E.rollBtn.classList.toggle('hidden', !state.started); E.rollBtn.disabled = !myTurn || state.phase !== 'roll' || Boolean(state.auction);
+  const canRoll = state.started && !E.rollBtn.disabled && !rolling;
+  E.diceStage.classList.toggle('can-roll', canRoll); E.diceStage.setAttribute('aria-disabled', String(!canRoll));
   E.payJailBtn.classList.toggle('hidden', !(myTurn && me?.inJail && state.phase === 'roll')); E.payJailBtn.disabled = (me?.money || 0) < 50;
   const canBuy = myTurn && state.phase === 'purchase' && isBuyable(tile) && !asset && me.money >= tile.price;
   E.buyBtn.classList.toggle('hidden', !canBuy);
   const canAuction = myTurn && state.phase === 'purchase' && isBuyable(tile) && !asset;
   E.auctionBtn.classList.toggle('hidden', !canAuction);
   const canEnd = myTurn && Boolean(state.lastRoll) && !state.auction && ['resolved','purchase'].includes(state.phase);
-  E.endBtn.classList.toggle('hidden', !state.started); E.endBtn.disabled = !canEnd;
+  E.endBtn.classList.toggle('hidden', !canEnd); E.endBtn.disabled = !canEnd;
   const canSkip = state.started && state.hostPlayerId === myPlayerId && current && !current.connected;
   E.skipBtn.classList.toggle('hidden', !canSkip);
   E.bankruptBtn.classList.toggle('hidden', !(myTurn && me?.money < 0));
@@ -287,6 +290,14 @@ E.board.addEventListener('keydown', event => {
   if (tile && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); showPropertyCard(Number(tile.dataset.tileIndex)); }
 });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') hidePropertyCard(); });
+function rollFromDice() {
+  if (E.rollBtn.classList.contains('hidden') || E.rollBtn.disabled || rolling) return;
+  E.rollBtn.click();
+}
+E.diceStage.addEventListener('click', rollFromDice);
+E.diceStage.addEventListener('keydown', event => {
+  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); rollFromDice(); }
+});
 E.tradeBtn.addEventListener('click', () => {
   const toId = E.tradeTarget.value; if (!toId) return;
   emitAction('trade-propose', {
@@ -296,7 +307,7 @@ E.tradeBtn.addEventListener('click', () => {
   }, () => toast('Teklif gönderildi', `${ownerName(toId)} yanıtladığında burada göreceksin.`));
 });
 E.startBtn.addEventListener('click', () => { sound('start'); emitAction('start-game'); });
-E.rollBtn.addEventListener('click', () => { sound('roll'); startDiceRoll(); emitAction('roll'); });
+E.rollBtn.addEventListener('click', () => { if (rolling || E.rollBtn.disabled) return; sound('roll'); startDiceRoll(); emitAction('roll'); });
 E.payJailBtn.addEventListener('click', () => emitAction('pay-jail'));
 E.buyBtn.addEventListener('click', () => { sound('cash'); emitAction('buy'); });
 E.auctionBtn.addEventListener('click', () => emitAction('auction-start'));

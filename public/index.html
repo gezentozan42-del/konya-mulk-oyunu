@@ -76,9 +76,13 @@
                   </div>
                   <i class="notice-timer" aria-hidden="true"></i>
                 </div>
-                <div class="dice-stage">
+                <div id="diceStage" class="dice-stage" role="button" tabindex="0" aria-label="Zar at">
                   <div class="die" id="die1" aria-label="Birinci zar"></div>
                   <div class="die" id="die2" aria-label="İkinci zar"></div>
+                </div>
+                <div class="center-controls">
+                  <button id="rollBtn" class="btn btn-primary center-roll hidden">🎲 Zar at</button>
+                  <button id="endBtn" class="btn btn-quiet center-end hidden">Sırayı bitir</button>
                 </div>
                 <div class="center-readout"><small>SON ZAR</small><strong id="diceTotal">—</strong></div>
                 <div class="center-stats"><span>Park Kasası <b id="pot">₺0</b></span><span>Tur <b id="turnNumber">—</b></span></div>
@@ -102,10 +106,8 @@
             <div class="action-grid">
               <button id="startBtn" class="btn btn-gold hidden">Oyunu başlat</button>
               <button id="payJailBtn" class="btn btn-gold hidden">₺50 öde, çık</button>
-              <button id="rollBtn" class="btn btn-primary hidden">🎲 Zar at</button>
               <button id="buyBtn" class="btn btn-primary hidden">Mülkü satın al</button>
               <button id="auctionBtn" class="btn btn-gold hidden">Açık artır</button>
-              <button id="endBtn" class="btn btn-quiet hidden">Sırayı bitir</button>
               <button id="skipBtn" class="btn btn-quiet hidden">Bağlantısı kopanı geç</button>
               <button id="bankruptBtn" class="btn btn-danger hidden">İflas et</button>
             </div>
