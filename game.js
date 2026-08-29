@@ -52,15 +52,20 @@ const board = [
 const chanceCards = [
   { title: 'Konya’ya Dönüş', message: "Konya'ya Hoşgeldin karesine ilerle ve ₺200 al.", action: 'move', position: 0, collectStart: true },
   { title: 'Karatay Gezisi', message: 'Ulubatlıhasan’a ilerle. Başlangıcı geçersen ₺200 al.', action: 'move', position: 18, collectStart: true },
+  { title: 'Akabe’ye Çıkış', message: 'Akabe’ye git. Başlangıcı geçersen ₺200 al.', action: 'move', position: 8, collectStart: true },
   { title: 'Yanlış Dönüş', message: 'Üç kare geri git.', action: 'moveRelative', amount: -3 },
+  { title: 'Kısa Yol', message: 'Konya trafiği bugün açık; dört kare ilerle.', action: 'moveRelative', amount: 4 },
   { title: 'Trafik Cezası', message: 'Kasaya ₺50 öde.', action: 'money', amount: -50, toPot: true },
   { title: 'Festival Ödülü', message: 'Şehir festivalinden ₺100 kazandın.', action: 'money', amount: 100 },
+  { title: 'Konyaspor Galibiyeti', message: 'Tribün coştu, prim olarak ₺150 aldın.', action: 'money', amount: 150 },
   { title: 'Mahkeme Kararı', message: 'Doğrudan hapse git.', action: 'jail' },
   { title: 'Yol Bakım Gideri', message: 'Her ev için ₺25, her otel için ₺100 öde.', action: 'repairs', house: 25, hotel: 100 },
   { title: 'İstasyon Ekspresi', message: 'En yakın istasyona ilerle.', action: 'nearest', type: 'station' },
-  { title: 'Ahmet’in Emlak Hamlesi', message: 'Ahmet iyi bir anlaşma yaptı; bankadan ₺100 alıyor.', action: 'namedMoney', targetName: 'Ahmet', amount: 100 },
-  { title: 'Tuğba’nın Kahve Buluşması', message: 'Tuğba masa buluşmasını düzenledi; bankadan ₺75 alıyor.', action: 'namedMoney', targetName: 'Tuğba', amount: 75 },
-  { title: 'Murat Tatlı Ismarlıyor', message: 'Murat herkese tatlı ısmarlıyor; diğer oyunculara ₺25’er ödüyor.', action: 'namedPayAll', targetName: 'Murat', amount: 25 }
+  { title: 'Ahmet Tatlı Ismarladı', message: 'Ahmet tatlı ısmarladı; hesabına ₺100 eklendi.', action: 'money', amount: 100 },
+  { title: 'Tuğba Çay Dağıttı', message: 'Tuğba çayları söyledi; ₺75 ikramiye aldın.', action: 'money', amount: 75 },
+  { title: 'Murat Arabana Çarptı', message: 'Murat arabana çarptı; ₺50 zarardasın.', action: 'money', amount: -50, toPot: true },
+  { title: 'Seher Nazar Boncuğu Taktı', message: 'Seher uğur getirdi; ₺50 şans parası aldın.', action: 'money', amount: 50 },
+  { title: 'Belediye Denetimi', message: 'Ruhsat işini unuttun; ₺75 ceza öde.', action: 'money', amount: -75, toPot: true }
 ];
 
 const chestCards = [
@@ -72,8 +77,12 @@ const chestCards = [
   { title: 'Aile Mirası', message: '₺100 miras aldın.', action: 'money', amount: 100 },
   { title: 'Okul Gideri', message: '₺50 eğitim masrafı öde.', action: 'money', amount: -50, toPot: true },
   { title: 'Banka Hatası', message: 'Hesabına yanlışlıkla ₺200 yatırıldı.', action: 'money', amount: 200 },
-  { title: 'Merve’nin Şanslı Günü', message: 'Merve’nin yüzü güldü; bankadan ₺100 alıyor.', action: 'namedMoney', targetName: 'Merve', amount: 100 },
-  { title: 'Seher’in Bereket Sofrası', message: 'Seher’in bereketi masaya yayıldı; bütün oyuncular ₺50 alıyor.', action: 'allMoney', targetName: 'Seher', amount: 50 }
+  { title: 'Merve’nin Şanslı Günü', message: 'Merve şansını paylaştı; bankadan ₺100 aldın.', action: 'money', amount: 100 },
+  { title: 'Seher’in Bereket Sofrası', message: 'Seher sofra kurdu; bütün oyuncular ₺50 aldı.', action: 'allMoney', targetName: 'Seher', amount: 50 },
+  { title: 'Ahmet Borcunu Unuttu', message: 'Ahmet borcunu karıştırdı; ₺50 senin cebinde kaldı.', action: 'money', amount: 50 },
+  { title: 'Tuğba’nın Park Cezası', message: 'Tuğba yüzünden yanlış yere park ettin; ₺50 ceza öde.', action: 'money', amount: -50, toPot: true },
+  { title: 'Murat Fırından Çıktı', message: 'Murat sıcak tatlı getirdi; ₺75 ikram aldı.', action: 'money', amount: 75 },
+  { title: 'Kayıp Cüzdan', message: 'Yolda cüzdan bulamadın; ₺100 masraf çıktı.', action: 'money', amount: -100, toPot: true }
 ];
 
 function id(prefix = '') { return prefix + crypto.randomBytes(8).toString('hex'); }

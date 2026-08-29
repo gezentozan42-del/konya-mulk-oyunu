@@ -95,14 +95,19 @@ test('kartla hapse gidiş sunucuya hareket rotası olarak yazılır', () => {
   assert.deepEqual(room.lastMovement, { ...room.lastMovement, from:7, to:10, steps:3, direction:'forward', reason:'card', pace:'fast' });
 });
 
-test('Murat özel kartı herkese tatlı ısmarlatır', () => {
+test('kişisel kartın ödül veya cezası kartı açan oyuncuya uygulanır', () => {
   const { room, first, second } = roomWithTwo();
-  first.name = 'Murat';
-  const cardIndex = game.chanceCards.findIndex(card => card.title === 'Murat Tatlı Ismarlıyor');
-  const notification = game.applyCard(room, second, 'chance', () => (cardIndex + 0.1) / game.chanceCards.length);
-  assert.equal(first.money, 1475);
-  assert.equal(second.money, 1525);
-  assert.match(notification.message, /Murat/);
+  const ahmetCard = game.chanceCards.findIndex(card => card.title === 'Ahmet Tatlı Ismarladı');
+  const reward = game.applyCard(room, second, 'chance', () => (ahmetCard + 0.1) / game.chanceCards.length);
+  assert.equal(first.money, 1500);
+  assert.equal(second.money, 1600);
+  assert.match(reward.message, /Ahmet/);
+
+  const muratCard = game.chanceCards.findIndex(card => card.title === 'Murat Arabana Çarptı');
+  const penalty = game.applyCard(room, second, 'chance', () => (muratCard + 0.1) / game.chanceCards.length);
+  assert.equal(second.money, 1550);
+  assert.equal(first.money, 1500);
+  assert.match(penalty.message, /Murat/);
 });
 
 test('beş arkadaşın tamamı için kişisel kart bulunur', () => {
