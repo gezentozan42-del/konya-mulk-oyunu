@@ -50,3 +50,10 @@ test('ipotekli tapu bankaya satılabilir', () => {
   assert.match(app, /Bankaya sat/);
   assert.match(css, /\.bank-sale/);
 });
+
+test('telefon yazıları okunabilir ölçeğe çıkarılır', () => {
+  assert.match(css, /\.player-name b\{font-size:13px\}/);
+  assert.match(css, /\.action-grid \.btn\{min-height:48px;font-size:13px\}/);
+  assert.match(css, /\.tile strong\{font-size:clamp\(6\.8px,2\.1vw,9px\)/);
+  assert.match(css, /\.property-modal \.property-card-top h3\{font-size:20px\}/);
+});
