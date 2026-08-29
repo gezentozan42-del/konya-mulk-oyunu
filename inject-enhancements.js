@@ -1,0 +1,10 @@
+const fs=require('fs');
+const path=require('path');
+const file=path.join(__dirname,'public','index.html');
+let html=fs.readFileSync(file,'utf8');
+const css='<link rel="stylesheet" href="/enhancements.css">';
+const js='<script src="/enhancements.js"></script>';
+if(!html.includes('/enhancements.css')) html=html.replace('</head>',`${css}\n</head>`);
+if(!html.includes('/enhancements.js')) html=html.replace('</body>',`${js}\n</body>`);
+fs.writeFileSync(file,html);
+console.log('Konya Mülk Oyunu görsel geliştirmeleri eklendi.');
