@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07110f">
-  <meta name="description" content="Konya temalı, arkadaşlarla gerçek zamanlı oynanan profesyonel mülk oyunu.">
-  <title>Konya Mülk Oyunu</title>
+  <meta name="description" content="Konya temalı, arkadaşlarla gerçek zamanlı oynanan profesyonel KonyaPoly oyunu.">
+  <title>KonyaPoly</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -19,9 +19,9 @@
     <section class="lobby-card">
       <div class="brand-lockup">
         <div class="seal"><span>K</span></div>
-        <div><span class="eyebrow">KONYA'DA YATIRIM ZAMANI</span><h1>Konya<br><em>Mülk Oyunu</em></h1></div>
+        <div><span class="eyebrow">KONYA'DA YATIRIM ZAMANI</span><h1>Konya<br><em>Poly</em></h1></div>
       </div>
-      <p class="lobby-lead">Şehrin caddelerini topla, renk gruplarını tamamla, imparatorluğunu kur. 2–5 arkadaş aynı odada canlı oynar ve sesle konuşur.</p>
+      <p class="lobby-lead">Mahalleleri topla, renk gruplarını tamamla, imparatorluğunu kur. 2–5 arkadaş aynı odada canlı oynar ve sesle konuşur.</p>
       <div class="feature-strip">
         <span>🎲 Canlı zar</span><span>🏛️ 40 özel kare</span><span>🎙️ Sesli masa</span><span>💾 Kalıcı odalar</span>
       </div>
@@ -37,7 +37,7 @@
     </section>
     <aside class="lobby-art" aria-hidden="true">
       <div class="city-lines"></div>
-      <div class="floating-card card-one"><small>PRESTİJ</small><strong>Kule Site</strong><span>₺400</span></div>
+      <div class="floating-card card-one"><small>SELÇUKLU MERKEZ</small><strong>Işıklar</strong><span>₺400</span></div>
       <div class="floating-card card-two"><small>ŞANS</small><strong>Festival Ödülü</strong><span>+ ₺100</span></div>
       <div class="hero-pawn"><i></i><b></b><span></span></div>
       <div class="art-caption"><b>Gerçek zamanlı oyun masası</b><span>Her hamle bütün ekranlarda aynı anda.</span></div>
@@ -46,13 +46,14 @@
 
   <main id="gameView" class="game-view hidden">
     <header class="game-header">
-      <div class="mini-brand"><span class="mini-seal">K</span><div><b>KONYA</b><small>MÜLK OYUNU</small></div></div>
+      <div class="mini-brand"><span class="mini-seal">K</span><div><b>KONYA</b><small>POLY</small></div></div>
       <div class="room-chip"><small>ODA</small><strong id="roomCode">—</strong><button id="copyCodeBtn" title="Oda bağlantısını kopyala">⧉</button></div>
       <div class="header-actions">
         <span id="voiceStatus" class="voice-status"><i></i> Ses kapalı</span>
         <button id="voiceBtn" class="icon-btn" title="Sesli masaya katıl">🎙️</button>
         <button id="muteBtn" class="icon-btn hidden" title="Mikrofonu kapat">🔇</button>
         <button id="shareBtn" class="icon-btn" title="Davet bağlantısı">↗</button>
+        <button id="exitBtn" class="icon-btn exit-btn" title="Masadan çık">↩</button>
       </div>
     </header>
 
@@ -65,7 +66,16 @@
               <section class="board-center">
                 <div class="center-emblem"><span>K</span></div>
                 <span class="center-kicker">KONYA</span>
-                <h2>MÜLK<br><em>OYUNU</em></h2>
+                <h2>KONYA<br><em>POLY</em></h2>
+                <div id="tableNotice" class="table-notice hidden" role="status" aria-live="polite">
+                  <span id="noticeSymbol" class="notice-symbol">?</span>
+                  <div class="notice-copy">
+                    <small id="noticeType">ŞANS KARTI</small>
+                    <strong id="noticeTitle">Kart başlığı</strong>
+                    <p id="noticeMessage">Kart açıklaması</p>
+                  </div>
+                  <i class="notice-timer" aria-hidden="true"></i>
+                </div>
                 <div class="dice-stage">
                   <div class="die" id="die1" aria-label="Birinci zar"></div>
                   <div class="die" id="die2" aria-label="İkinci zar"></div>
@@ -87,7 +97,7 @@
         <div id="playPanel" class="panel-page active">
           <section class="surface current-tile">
             <div class="section-label">BULUNDUĞUN KARE</div>
-            <div class="tile-hero"><span id="tileIcon" class="tile-icon">⌂</span><div><h3 id="tileName">Başlangıç</h3><p id="tileInfo">Oyun başladığında burada bilgi göreceksin.</p></div></div>
+            <div class="tile-hero"><span id="tileIcon" class="tile-icon">⌂</span><div><h3 id="tileName">Konya'ya Hoşgeldin</h3><p id="tileInfo">Oyun başladığında burada bilgi göreceksin.</p></div></div>
             <div class="action-grid">
               <button id="startBtn" class="btn btn-gold hidden">Oyunu başlat</button>
               <button id="payJailBtn" class="btn btn-gold hidden">₺50 öde, çık</button>
@@ -124,16 +134,6 @@
     </section>
   </main>
 
-  <div id="cardOverlay" class="card-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="cardType">
-    <div class="event-card" id="eventCard">
-      <button id="closeCardBtn" class="close-card" aria-label="Bildirimi kapat">×</button>
-      <div id="cardSymbol" class="card-symbol">?</div>
-      <span id="cardType" class="event-type">ŞANS KARTI</span>
-      <h2 id="cardTitle">Kart başlığı</h2>
-      <p id="cardMessage">Kart açıklaması</p>
-      <small id="cardPlayer">Tüm oyunculara bildirildi</small>
-    </div>
-  </div>
   <div id="toastStack" class="toast-stack" aria-live="polite"></div>
   <div id="confetti" class="confetti" aria-hidden="true"></div>
 

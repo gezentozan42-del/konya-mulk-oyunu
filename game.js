@@ -7,57 +7,60 @@ const START_MONEY = 1500;
 const START_BONUS = 200;
 
 const board = [
-  { type: 'start', name: 'Başlangıç', text: 'Geçerken ₺200 al' },
-  { type: 'property', name: 'Alaaddin Bulvarı', group: 'Selçuklu-I', price: 60, rent: [2, 10, 30, 90, 160, 250], buildCost: 50 },
+  { type: 'start', name: "Konya'ya Hoşgeldin", text: 'Geçerken ₺200 al' },
+  { type: 'property', name: 'Aziziye', group: 'Tarihi Karatay', price: 60, rent: [2, 10, 30, 90, 160, 250], buildCost: 50 },
   { type: 'chest', name: 'Şehir Sandığı', text: 'Sandığı aç' },
-  { type: 'property', name: 'Bosna Hersek Caddesi', group: 'Selçuklu-I', price: 60, rent: [4, 20, 60, 180, 320, 450], buildCost: 50 },
+  { type: 'property', name: 'Akçeşme', group: 'Tarihi Karatay', price: 60, rent: [4, 20, 60, 180, 320, 450], buildCost: 50 },
   { type: 'tax', name: 'Belediye Vergisi', amount: 200 },
   { type: 'station', name: 'Konya Garı', price: 200 },
-  { type: 'property', name: 'Sille Yolu', group: 'Selçuklu-II', price: 100, rent: [6, 30, 90, 270, 400, 550], buildCost: 50 },
+  { type: 'property', name: 'Yenimahalle', group: 'Akabe Çevresi', price: 100, rent: [6, 30, 90, 270, 400, 550], buildCost: 50 },
   { type: 'chance', name: 'Şans', text: 'Kart çek' },
-  { type: 'property', name: 'Beyhekim Caddesi', group: 'Selçuklu-II', price: 100, rent: [6, 30, 90, 270, 400, 550], buildCost: 50 },
-  { type: 'property', name: 'Yazır Caddesi', group: 'Selçuklu-II', price: 120, rent: [8, 40, 100, 300, 450, 600], buildCost: 50 },
-  { type: 'jail', name: 'Trafik Molası', text: 'Ziyaret / bekleme' },
-  { type: 'property', name: 'Meram Yeni Yol', group: 'Meram-I', price: 140, rent: [10, 50, 150, 450, 625, 750], buildCost: 100 },
-  { type: 'utility', name: 'Konya Su', price: 150 },
-  { type: 'property', name: 'Lalebahçe Caddesi', group: 'Meram-I', price: 140, rent: [10, 50, 150, 450, 625, 750], buildCost: 100 },
-  { type: 'property', name: 'Havzan Caddesi', group: 'Meram-I', price: 160, rent: [12, 60, 180, 500, 700, 900], buildCost: 100 },
+  { type: 'property', name: 'Akabe', group: 'Akabe Çevresi', price: 100, rent: [6, 30, 90, 270, 400, 550], buildCost: 50 },
+  { type: 'property', name: 'Çimenlik', group: 'Akabe Çevresi', price: 120, rent: [8, 40, 100, 300, 450, 600], buildCost: 50 },
+  { type: 'jail', name: 'Hapis / Ziyaret', text: 'Hapis Ziyareti' },
+  { type: 'property', name: 'Lalebahçe', group: 'Meram Bağları', price: 140, rent: [10, 50, 150, 450, 625, 750], buildCost: 100 },
+  { type: 'utility', name: 'KOSKİ', price: 150 },
+  { type: 'property', name: 'Alavardı', group: 'Meram Bağları', price: 140, rent: [10, 50, 150, 450, 625, 750], buildCost: 100 },
+  { type: 'property', name: 'Havzan', group: 'Meram Bağları', price: 160, rent: [12, 60, 180, 500, 700, 900], buildCost: 100 },
   { type: 'station', name: 'Konya Otogarı', price: 200 },
-  { type: 'property', name: 'Fetih Caddesi', group: 'Karatay-I', price: 180, rent: [14, 70, 200, 550, 750, 950], buildCost: 100 },
+  { type: 'property', name: 'Fetih', group: 'Karatay Doğu', price: 180, rent: [14, 70, 200, 550, 750, 950], buildCost: 100 },
   { type: 'chest', name: 'Şehir Sandığı', text: 'Sandığı aç' },
-  { type: 'property', name: 'Mevlana Caddesi', group: 'Karatay-I', price: 180, rent: [14, 70, 200, 550, 750, 950], buildCost: 100 },
-  { type: 'property', name: 'Adana Çevre Yolu', group: 'Karatay-I', price: 200, rent: [16, 80, 220, 600, 800, 1000], buildCost: 100 },
+  { type: 'property', name: 'Ulubatlıhasan', group: 'Karatay Doğu', price: 180, rent: [14, 70, 200, 550, 750, 950], buildCost: 100 },
+  { type: 'property', name: 'Erenler', group: 'Karatay Doğu', price: 200, rent: [16, 80, 220, 600, 800, 1000], buildCost: 100 },
   { type: 'freeParking', name: 'Kültür Parkı', text: 'Ortadaki kasayı al' },
-  { type: 'property', name: 'Nalçacı Caddesi', group: 'Merkez-I', price: 220, rent: [18, 90, 250, 700, 875, 1050], buildCost: 150 },
+  { type: 'property', name: 'Yazır', group: 'Selçuklu Kuzey', price: 220, rent: [18, 90, 250, 700, 875, 1050], buildCost: 150 },
   { type: 'chance', name: 'Şans', text: 'Kart çek' },
-  { type: 'property', name: 'Ankara Caddesi', group: 'Merkez-I', price: 220, rent: [18, 90, 250, 700, 875, 1050], buildCost: 150 },
-  { type: 'property', name: 'Kule Caddesi', group: 'Merkez-I', price: 240, rent: [20, 100, 300, 750, 925, 1100], buildCost: 150 },
+  { type: 'property', name: 'Sancak', group: 'Selçuklu Kuzey', price: 220, rent: [18, 90, 250, 700, 875, 1050], buildCost: 150 },
+  { type: 'property', name: 'Parsana', group: 'Selçuklu Kuzey', price: 240, rent: [20, 100, 300, 750, 925, 1100], buildCost: 150 },
   { type: 'station', name: 'YHT Garı', price: 200 },
-  { type: 'property', name: 'Selçuklu Caddesi', group: 'Karatay-II', price: 260, rent: [22, 110, 330, 800, 975, 1150], buildCost: 150 },
-  { type: 'property', name: 'İstanbul Yolu', group: 'Karatay-II', price: 260, rent: [22, 110, 330, 800, 975, 1150], buildCost: 150 },
+  { type: 'property', name: 'Bosna Hersek', group: 'Kampüs Çevresi', price: 260, rent: [22, 110, 330, 800, 975, 1150], buildCost: 150 },
+  { type: 'property', name: 'Kosova', group: 'Kampüs Çevresi', price: 260, rent: [22, 110, 330, 800, 975, 1150], buildCost: 150 },
   { type: 'utility', name: 'MEDAŞ', price: 150 },
-  { type: 'property', name: 'Beyşehir Çevre Yolu', group: 'Karatay-II', price: 280, rent: [24, 120, 360, 850, 1025, 1200], buildCost: 150 },
-  { type: 'goToJail', name: 'Trafik Denetimi', text: 'Molaya git' },
-  { type: 'property', name: 'Meram Dere Caddesi', group: 'Merkez-II', price: 300, rent: [26, 130, 390, 900, 1100, 1275], buildCost: 200 },
-  { type: 'property', name: 'Akyokuş Yolu', group: 'Merkez-II', price: 300, rent: [26, 130, 390, 900, 1100, 1275], buildCost: 200 },
+  { type: 'property', name: 'Ardıçlı', group: 'Kampüs Çevresi', price: 280, rent: [24, 120, 360, 850, 1025, 1200], buildCost: 150 },
+  { type: 'goToJail', name: 'Kekolarla Kavga Ettin', text: 'Hapse Git' },
+  { type: 'property', name: 'Yaka', group: 'Meram Güney', price: 300, rent: [26, 130, 390, 900, 1100, 1275], buildCost: 200 },
+  { type: 'property', name: 'Akyokuş', group: 'Meram Güney', price: 300, rent: [26, 130, 390, 900, 1100, 1275], buildCost: 200 },
   { type: 'chest', name: 'Şehir Sandığı', text: 'Sandığı aç' },
-  { type: 'property', name: 'Çeçenistan Caddesi', group: 'Merkez-II', price: 320, rent: [28, 150, 450, 1000, 1200, 1400], buildCost: 200 },
+  { type: 'property', name: 'Dere', group: 'Meram Güney', price: 320, rent: [28, 150, 450, 1000, 1200, 1400], buildCost: 200 },
   { type: 'station', name: 'Konya Havalimanı', price: 200 },
   { type: 'chance', name: 'Şans', text: 'Kart çek' },
-  { type: 'property', name: 'Yeni İstanbul Caddesi', group: 'Prestij', price: 350, rent: [35, 175, 500, 1100, 1300, 1500], buildCost: 200 },
+  { type: 'property', name: 'Kılınçarslan', group: 'Selçuklu Merkez', price: 350, rent: [35, 175, 500, 1100, 1300, 1500], buildCost: 200 },
   { type: 'tax', name: 'Emlak Vergisi', amount: 100 },
-  { type: 'property', name: 'Kule Site Caddesi', group: 'Prestij', price: 400, rent: [50, 200, 600, 1400, 1700, 2000], buildCost: 200 }
+  { type: 'property', name: 'Işıklar', group: 'Selçuklu Merkez', price: 400, rent: [50, 200, 600, 1400, 1700, 2000], buildCost: 200 }
 ];
 
 const chanceCards = [
-  { title: 'Alaaddin’e Yolculuk', message: 'Başlangıca ilerle ve ₺200 al.', action: 'move', position: 0, collectStart: true },
-  { title: 'Mevlana Ziyareti', message: 'Mevlana Caddesi’ne ilerle. Başlangıcı geçersen ₺200 al.', action: 'move', position: 18, collectStart: true },
+  { title: 'Konya’ya Dönüş', message: "Konya'ya Hoşgeldin karesine ilerle ve ₺200 al.", action: 'move', position: 0, collectStart: true },
+  { title: 'Karatay Gezisi', message: 'Ulubatlıhasan’a ilerle. Başlangıcı geçersen ₺200 al.', action: 'move', position: 18, collectStart: true },
   { title: 'Yanlış Dönüş', message: 'Üç kare geri git.', action: 'moveRelative', amount: -3 },
   { title: 'Trafik Cezası', message: 'Kasaya ₺50 öde.', action: 'money', amount: -50, toPot: true },
   { title: 'Festival Ödülü', message: 'Şehir festivalinden ₺100 kazandın.', action: 'money', amount: 100 },
-  { title: 'Trafik Denetimi', message: 'Doğrudan Trafik Molası’na git.', action: 'jail' },
+  { title: 'Mahkeme Kararı', message: 'Doğrudan hapse git.', action: 'jail' },
   { title: 'Yol Bakım Gideri', message: 'Her ev için ₺25, her otel için ₺100 öde.', action: 'repairs', house: 25, hotel: 100 },
-  { title: 'İstasyon Ekspresi', message: 'En yakın istasyona ilerle.', action: 'nearest', type: 'station' }
+  { title: 'İstasyon Ekspresi', message: 'En yakın istasyona ilerle.', action: 'nearest', type: 'station' },
+  { title: 'Ahmet’in Emlak Hamlesi', message: 'Ahmet iyi bir anlaşma yaptı; bankadan ₺100 alıyor.', action: 'namedMoney', targetName: 'Ahmet', amount: 100 },
+  { title: 'Tuğba’nın Kahve Buluşması', message: 'Tuğba masa buluşmasını düzenledi; bankadan ₺75 alıyor.', action: 'namedMoney', targetName: 'Tuğba', amount: 75 },
+  { title: 'Murat Tatlı Ismarlıyor', message: 'Murat herkese tatlı ısmarlıyor; diğer oyunculara ₺25’er ödüyor.', action: 'namedPayAll', targetName: 'Murat', amount: 25 }
 ];
 
 const chestCards = [
@@ -65,10 +68,12 @@ const chestCards = [
   { title: 'Hastane Masrafı', message: '₺100 sağlık gideri öde.', action: 'money', amount: -100, toPot: true },
   { title: 'Doğum Günü', message: 'Her oyuncudan ₺25 hediye al.', action: 'birthday', amount: 25 },
   { title: 'Vergi İadesi', message: '₺50 vergi iadesi al.', action: 'money', amount: 50 },
-  { title: 'Trafik Molası', message: 'Doğrudan Trafik Molası’na git.', action: 'jail' },
+  { title: 'Hapse Git', message: 'Doğrudan hapse git.', action: 'jail' },
   { title: 'Aile Mirası', message: '₺100 miras aldın.', action: 'money', amount: 100 },
   { title: 'Okul Gideri', message: '₺50 eğitim masrafı öde.', action: 'money', amount: -50, toPot: true },
-  { title: 'Banka Hatası', message: 'Hesabına yanlışlıkla ₺200 yatırıldı.', action: 'money', amount: 200 }
+  { title: 'Banka Hatası', message: 'Hesabına yanlışlıkla ₺200 yatırıldı.', action: 'money', amount: 200 },
+  { title: 'Merve’nin Şanslı Günü', message: 'Merve’nin yüzü güldü; bankadan ₺100 alıyor.', action: 'namedMoney', targetName: 'Merve', amount: 100 },
+  { title: 'Seher’in Bereket Sofrası', message: 'Seher’in bereketi masaya yayıldı; bütün oyuncular ₺50 alıyor.', action: 'allMoney', targetName: 'Seher', amount: 50 }
 ];
 
 function id(prefix = '') { return prefix + crypto.randomBytes(8).toString('hex'); }
@@ -131,6 +136,7 @@ function addPlayer(room, playerName, socketId, playerId = id('p_'), resumeToken 
 }
 function publicState(room) {
   const state = clone(room);
+  state.board = clone(board);
   state.players.forEach(p => { delete p.resumeToken; delete p.socketId; });
   return state;
 }
@@ -183,7 +189,7 @@ function movePlayer(room, player, steps) {
   const next = ((old + steps) % board.length + board.length) % board.length;
   if (steps > 0 && old + steps >= board.length) {
     player.money += START_BONUS;
-    log(room, `${player.name} başlangıçtan geçti ve ₺${START_BONUS} aldı.`, 'money');
+    log(room, `${player.name} Konya'ya Hoşgeldin karesinden geçti ve ₺${START_BONUS} aldı.`, 'money');
   }
   player.pos = next;
   return next;
@@ -191,16 +197,27 @@ function movePlayer(room, player, steps) {
 function moveTo(room, player, position, collectStart = false) {
   if (collectStart && position <= player.pos && position !== player.pos) {
     player.money += START_BONUS;
-    log(room, `${player.name} başlangıçtan geçti ve ₺${START_BONUS} aldı.`, 'money');
+    log(room, `${player.name} Konya'ya Hoşgeldin karesinden geçti ve ₺${START_BONUS} aldı.`, 'money');
   }
   player.pos = position;
 }
-function sendToJail(room, player) {
+function sendToJail(room, player, options = {}) {
   player.pos = 10;
   player.inJail = true;
   player.jailTurns = 0;
+  room.extraTurn = false;
+  room.doublesCount = 0;
   room.phase = 'resolved';
-  log(room, `${player.name} Trafik Molası’na gitti.`, 'jail');
+  log(room, `${player.name} hapse gitti.`, 'jail');
+  if (options.notify === false) return null;
+  return notify(room, {
+    kind: 'jail',
+    title: options.title || 'Hapis',
+    cardTitle: options.cardTitle || 'Hapse Git',
+    message: options.message || `${player.name} hapse gönderildi.`,
+    playerId: player.id,
+    playerName: player.name
+  });
 }
 function applyCard(room, player, kind, random = Math.random) {
   const deck = kind === 'chance' ? chanceCards : chestCards;
@@ -226,7 +243,7 @@ function applyCard(room, player, kind, random = Math.random) {
     movePlayer(room, player, card.amount);
     resolveLanding(room, player, { fromCard: true });
   } else if (card.action === 'jail') {
-    sendToJail(room, player);
+    sendToJail(room, player, { notify: false });
   } else if (card.action === 'repairs') {
     let amount = 0;
     for (const [i, asset] of ownedAssets(room, player.id)) {
@@ -239,6 +256,16 @@ function applyCard(room, player, kind, random = Math.random) {
     for (const other of activePlayers(room)) {
       if (other.id !== player.id) transfer(other, player, Math.min(card.amount, Math.max(0, other.money)));
     }
+  } else if (card.action === 'namedMoney') {
+    const target = room.players.find(item => item.name.toLocaleLowerCase('tr') === card.targetName.toLocaleLowerCase('tr')) || player;
+    target.money += card.amount;
+  } else if (card.action === 'namedPayAll') {
+    const target = room.players.find(item => item.name.toLocaleLowerCase('tr') === card.targetName.toLocaleLowerCase('tr')) || player;
+    for (const other of activePlayers(room)) {
+      if (other.id !== target.id) transfer(target, other, Math.min(card.amount, Math.max(0, target.money)));
+    }
+  } else if (card.action === 'allMoney') {
+    for (const participant of activePlayers(room)) participant.money += card.amount;
   } else if (card.action === 'nearest') {
     const targets = board.map((t, i) => t.type === card.type ? i : -1).filter(i => i >= 0);
     const target = targets.find(i => i > player.pos) ?? targets[0];
@@ -260,7 +287,11 @@ function resolveLanding(room, player, options = {}) {
     room.freeParkingPot = 0;
     log(room, `${player.name}, Kültür Parkı kasasından ₺${amount} aldı.`, 'money');
   } else if (tile.type === 'goToJail') {
-    sendToJail(room, player);
+    return sendToJail(room, player, {
+      title: 'Hapse Git',
+      cardTitle: 'Kekolarla Kavga Ettin',
+      message: `${player.name}, kavga sonrası doğruca hapse gönderildi.`
+    });
   } else if (tile.type === 'chance' || tile.type === 'chest') {
     if (!options.fromCard) return applyCard(room, player, tile.type);
   } else if (['property', 'station', 'utility'].includes(tile.type)) {
@@ -297,46 +328,50 @@ function roll(room, playerId, dice) {
   room.lastRoll = values;
   room.doublesCount = isDouble ? room.doublesCount + 1 : 0;
   if (room.doublesCount >= 3) {
-    sendToJail(room, player);
-    room.doublesCount = 0;
-    notify(room, { kind: 'jail', title: 'Üç Çift Zar', cardTitle: 'Trafik Molası', message: `${player.name} art arda üç çift attı ve molaya gönderildi.` });
-    return { values, notification: room.notifications.at(-1) };
+    const notification = sendToJail(room, player, {
+      title: 'Üç Çift Zar',
+      cardTitle: 'Hapse Git',
+      message: `${player.name} art arda üç çift attığı için hapse gönderildi.`
+    });
+    return { values, notification };
   }
+  let leftJailWithDouble = false;
   if (player.inJail) {
     if (isDouble) {
       player.inJail = false;
       player.jailTurns = 0;
-      log(room, `${player.name} çift zarla Trafik Molası’ndan çıktı.`, 'jail');
+      leftJailWithDouble = true;
+      log(room, `${player.name} çift zarla hapisten çıktı.`, 'jail');
     } else {
       player.jailTurns += 1;
       if (player.jailTurns < 3) {
         room.phase = 'resolved';
-        log(room, `${player.name} molada kaldı (${player.jailTurns}/3).`, 'jail');
+        log(room, `${player.name} hapiste kaldı (${player.jailTurns}/3).`, 'jail');
         return { values };
       }
       transfer(player, null, 50);
       room.freeParkingPot += 50;
       player.inJail = false;
       player.jailTurns = 0;
-      log(room, `${player.name} üçüncü turda ₺50 ödeyip moladan çıktı.`, 'jail');
+      log(room, `${player.name} üçüncü turda ₺50 ödeyip hapisten çıktı.`, 'jail');
     }
   }
   movePlayer(room, player, values[0] + values[1]);
   log(room, `${player.name} ${values[0]} + ${values[1]} attı ve ${board[player.pos].name} karesine geldi.`, 'roll');
   const notification = resolveLanding(room, player);
-  room.extraTurn = isDouble && !player.inJail;
+  room.extraTurn = isDouble && !leftJailWithDouble && !player.inJail;
   touch(room);
   return { values, notification };
 }
 function payJail(room, playerId) {
   const player = assertTurn(room, playerId);
-  if (!player.inJail || room.phase !== 'roll') throw new Error('Şu anda mola ödemesi yapılamaz.');
+  if (!player.inJail || room.phase !== 'roll') throw new Error('Şu anda hapis çıkış bedeli ödenemez.');
   if (player.money < 50) throw new Error('Yeterli paran yok.');
   player.money -= 50;
   room.freeParkingPot += 50;
   player.inJail = false;
   player.jailTurns = 0;
-  log(room, `${player.name} ₺50 ödeyip Trafik Molası’ndan çıktı.`, 'jail');
+  log(room, `${player.name} ₺50 ödeyip hapisten çıktı.`, 'jail');
   touch(room);
 }
 function buy(room, playerId) {
@@ -500,17 +535,17 @@ function respondTrade(room, playerId, tradeId, accept) {
   log(room, `${from.name} ile ${to.name} arasındaki takas tamamlandı.`, 'trade');
   notify(room, { kind: 'trade', title: 'Takas Tamamlandı', cardTitle: `${from.name} ↔ ${to.name}`, message: 'Mülk ve nakit değişimi başarıyla gerçekleşti.' }); touch(room);
 }
-function bankrupt(room, playerId) {
-  const player = assertTurn(room, playerId);
+function eliminatePlayer(room, player, reason = 'bankrupt') {
   player.bankrupt = true; player.money = 0;
+  if (reason === 'left') player.left = true;
   for (const [index] of ownedAssets(room, player.id)) delete room.assets[String(index)];
   room.pendingTrades = room.pendingTrades.filter(t => t.fromId !== player.id && t.toId !== player.id);
-  log(room, `${player.name} iflas etti.`, 'bankrupt');
+  log(room, reason === 'left' ? `${player.name} masadan ayrıldı.` : `${player.name} iflas etti.`, reason === 'left' ? 'leave' : 'bankrupt');
   const left = activePlayers(room);
   if (left.length === 1) {
-    room.finished = true; room.winnerId = left[0].id; room.phase = 'finished';
+    room.finished = true; room.winnerId = left[0].id; room.turnPlayerId = left[0].id; room.phase = 'finished';
     notify(room, { kind: 'winner', title: 'Oyun Bitti', cardTitle: `${left[0].name} kazandı!`, message: 'Konya’nın yeni mülk ustası belli oldu.' });
-  } else {
+  } else if (room.turnPlayerId === player.id) {
     const allPlayers = room.players;
     const currentIndex = allPlayers.findIndex(item => item.id === player.id);
     let next = null;
@@ -523,6 +558,34 @@ function bankrupt(room, playerId) {
     log(room, `Sıra ${next.name} oyuncusunda.`, 'turn');
   }
   touch(room);
+  return room.notifications.at(-1);
+}
+function bankrupt(room, playerId) {
+  const player = assertTurn(room, playerId);
+  return eliminatePlayer(room, player, 'bankrupt');
+}
+function leaveRoom(room, playerId) {
+  const player = playerById(room, playerId);
+  if (!player) throw new Error('Oyuncu bulunamadı.');
+  if (!room.started) {
+    room.players = room.players.filter(item => item.id !== player.id);
+    room.pendingTrades = room.pendingTrades.filter(item => item.fromId !== player.id && item.toId !== player.id);
+    if (room.hostPlayerId === player.id) room.hostPlayerId = room.players[0]?.id || null;
+    log(room, `${player.name} masadan ayrıldı.`, 'leave');
+    touch(room);
+    return { empty: room.players.length === 0, notification: null };
+  }
+  if (!player.bankrupt) eliminatePlayer(room, player, 'left');
+  if (room.hostPlayerId === player.id) {
+    room.hostPlayerId = room.players.find(item => item.connected && !item.bankrupt)?.id
+      || room.players.find(item => !item.bankrupt)?.id
+      || null;
+  }
+  const notification = room.finished
+    ? room.notifications.at(-1)
+    : notify(room, { kind: 'system', title: 'Masa', cardTitle: `${player.name} ayrıldı`, message: 'Oyun kalan oyuncularla devam ediyor.' });
+  touch(room);
+  return { empty: false, notification };
 }
 
 module.exports = {
@@ -530,6 +593,6 @@ module.exports = {
   publicState, playerById, activePlayers, ownsGroup, calculateRent, startGame, roll,
   payJail, buy, startAuction, auctionBid, auctionPass, finishAuctionIfReady, endTurn,
   skipDisconnected,
-  build, sellBuilding, mortgage, unmortgage, proposeTrade, respondTrade, bankrupt,
+  build, sellBuilding, mortgage, unmortgage, proposeTrade, respondTrade, bankrupt, leaveRoom,
   applyCard, resolveLanding, log, notify, touch, assetValue
 };

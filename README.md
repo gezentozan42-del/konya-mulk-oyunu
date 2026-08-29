@@ -1,4 +1,4 @@
-# Konya Mülk Oyunu
+# KonyaPoly
 
 2–5 arkadaşın aynı odada gerçek zamanlı oynadığı, Konya temalı profesyonel mülk oyunu. Oyun kuralları ve oda durumu sunucuda yönetilir; zar, sıra, mülkler, takaslar, açık artırma, Şans/Şehir Sandığı kartları ve ortak bildirimler bütün oyuncularda eş zamanlı görünür.
 

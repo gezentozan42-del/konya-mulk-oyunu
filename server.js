@@ -215,6 +215,25 @@ io.on('connection', socket => {
   action(socket, 'skip-disconnected', () => {
     const { room, player } = session(socket); game.skipDisconnected(room, player.id); broadcast(room);
   });
+  action(socket, 'leave-room', async () => {
+    const { room, player } = session(socket);
+    const result = game.leaveRoom(room, player.id);
+    const code = room.code;
+    socket.leave(code);
+    socket.data.roomCode = null;
+    socket.data.playerId = null;
+    voiceMembers.get(code)?.delete(player.id);
+    io.to(code).emit('voice-left', player.id);
+    if (result.empty) {
+      rooms.delete(code);
+      clearTimeout(saveTimers.get(code));
+      saveTimers.delete(code);
+      if (pool) await pool.query('DELETE FROM konya_game_rooms WHERE code = $1', [code]).catch(() => {});
+    } else {
+      broadcast(room, result.notification);
+    }
+    return { left: true };
+  });
   action(socket, 'build', ({ index }) => {
     const { room, player } = session(socket); game.build(room, player.id, index); broadcast(room);
   });
@@ -298,7 +317,7 @@ setInterval(async () => {
 
 async function main() {
   await initPersistence();
-  server.listen(PORT, '0.0.0.0', () => console.log(`Konya Mülk Oyunu :${PORT} portunda hazır.`));
+  server.listen(PORT, '0.0.0.0', () => console.log(`KonyaPoly :${PORT} portunda hazır.`));
 }
 main().catch(error => { console.error(error); process.exit(1); });
 

@@ -1,8 +1,8 @@
 {
-  "name": "konya-mulk-oyunu",
+  "name": "konyapoly",
   "version": "2.0.0",
   "private": true,
-  "description": "Railway üzerinde çalışan gerçek zamanlı Konya temalı mülk oyunu",
+  "description": "Railway üzerinde çalışan gerçek zamanlı Konya temalı KonyaPoly oyunu",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {

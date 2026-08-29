@@ -3,13 +3,13 @@
 const socket = io({ transports: ['websocket', 'polling'] });
 const $ = id => document.getElementById(id);
 const E = Object.fromEntries([
-  'connectionBar','lobbyView','gameView','nameInput','codeInput','createBtn','joinBtn','loginStatus','roomCode','copyCodeBtn','voiceStatus','voiceBtn','muteBtn','shareBtn',
-  'turnBanner','turnText','turnHint','board','tokenLayer','die1','die2','diceTotal','pot','turnNumber','tileIcon','tileName','tileInfo','startBtn','payJailBtn','rollBtn','buyBtn','auctionBtn','endBtn','skipBtn','bankruptBtn','auctionBox','incomingTrade','playerCount','players','portfolioValue','myAssets','tradeTarget','offerCash','requestCash','offerAssets','requestAssets','tradeBtn','chat','chatForm','chatInput','log','cardOverlay','eventCard','closeCardBtn','cardSymbol','cardType','cardTitle','cardMessage','cardPlayer','toastStack','confetti'
+  'connectionBar','lobbyView','gameView','nameInput','codeInput','createBtn','joinBtn','loginStatus','roomCode','copyCodeBtn','voiceStatus','voiceBtn','muteBtn','shareBtn','exitBtn',
+  'turnBanner','turnText','turnHint','board','tokenLayer','die1','die2','diceTotal','pot','turnNumber','tableNotice','noticeSymbol','noticeType','noticeTitle','noticeMessage','tileIcon','tileName','tileInfo','startBtn','payJailBtn','rollBtn','buyBtn','auctionBtn','endBtn','skipBtn','bankruptBtn','auctionBox','incomingTrade','playerCount','players','portfolioValue','myAssets','tradeTarget','offerCash','requestCash','offerAssets','requestAssets','tradeBtn','chat','chatForm','chatInput','log','toastStack','confetti'
 ].map(id => [id, $(id)]));
 
 const GROUP_COLORS = {
-  'Selçuklu-I':'#9b7352','Selçuklu-II':'#54bce8','Meram-I':'#de78ae','Karatay-I':'#e68b37',
-  'Merkez-I':'#df4d54','Karatay-II':'#e8cf51','Merkez-II':'#54b86b','Prestij':'#3e72cf',station:'#8d9a95',utility:'#8774c8'
+  'Tarihi Karatay':'#9b7352','Akabe Çevresi':'#54bce8','Meram Bağları':'#de78ae','Karatay Doğu':'#e68b37',
+  'Selçuklu Kuzey':'#df4d54','Kampüs Çevresi':'#e8cf51','Meram Güney':'#54b86b','Selçuklu Merkez':'#3e72cf',station:'#8d9a95',utility:'#8774c8'
 };
 const PLAYER_COLORS = ['#58a6ff','#ff6b6b','#a878ff','#f6c453','#45d483'];
 const PIP_MAP = {1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
@@ -18,6 +18,7 @@ const CARD_ICONS = {chance:'?',chest:'▣',winner:'♛',system:'◆',trade:'⇄'
 
 let state = null, previousState = null, myPlayerId = null, roomCode = null, resumeToken = null;
 let rolling = false, rollingTimer = null, animationVersion = 0, audioContext = null;
+let noticeTimer = null;
 let localStream = null, micMuted = false, iceServers = null;
 const tokenElements = new Map(), peers = new Map(), pendingCandidates = new Map(), notificationQueue = [];
 
@@ -125,7 +126,7 @@ function renderPlayers() {
   E.playerCount.textContent = `${state.players.length} / 5`;
   E.players.innerHTML = state.players.map(item => {
     const netWorth = item.money + assetEntries(item.id).reduce((total, entry) => total + (entry.tile.price || 0) + (entry.asset.level || 0) * (entry.tile.buildCost || 0), 0);
-    return `<div class="player-row ${item.id === state.turnPlayerId && state.started ? 'turn' : ''} ${item.id === myPlayerId ? 'me' : ''}" style="--player-color:${PLAYER_COLORS[item.color]}"><div class="player-main"><i class="player-orb"></i><div class="player-name"><b>${esc(item.name)}${item.id === myPlayerId ? ' · SEN' : ''}</b><small>${item.bankrupt ? 'İflas etti' : item.inJail ? `Trafik molası ${item.jailTurns}/3` : `${propertyCount(item.id)} mülk · Değer ${money(netWorth)}`}</small></div><span class="player-money">${money(item.money)}</span></div><i class="online-dot ${item.connected ? 'on' : ''}"></i></div>`;
+    return `<div class="player-row ${item.id === state.turnPlayerId && state.started ? 'turn' : ''} ${item.id === myPlayerId ? 'me' : ''}" style="--player-color:${PLAYER_COLORS[item.color]}"><div class="player-main"><i class="player-orb"></i><div class="player-name"><b>${esc(item.name)}${item.id === myPlayerId ? ' · SEN' : ''}</b><small>${item.bankrupt ? 'İflas etti' : item.inJail ? `Hapiste ${item.jailTurns}/3` : `${propertyCount(item.id)} mülk · Değer ${money(netWorth)}`}</small></div><span class="player-money">${money(item.money)}</span></div><i class="online-dot ${item.connected ? 'on' : ''}"></i></div>`;
   }).join('');
 }
 function renderAssets() {
@@ -209,11 +210,22 @@ E.auctionBtn.addEventListener('click', () => emitAction('auction-start'));
 E.endBtn.addEventListener('click', () => emitAction('end-turn'));
 E.skipBtn.addEventListener('click', () => emitAction('skip-disconnected'));
 E.bankruptBtn.addEventListener('click', () => { if (confirm('İflas edip oyundan çekilmek istediğine emin misin?')) emitAction('bankrupt'); });
+E.exitBtn.addEventListener('click', () => {
+  const message = state?.started ? 'Masadan çıkarsan bu oyunda çekilmiş sayılacaksın. Çıkmak istiyor musun?' : 'Bu masadan çıkmak istiyor musun?';
+  if (!confirm(message)) return;
+  E.exitBtn.disabled = true;
+  socket.emit('leave-room', {}, result => {
+    localStorage.removeItem('konyaMulkSessionV2');
+    if (!result?.ok) toast('Masadan çıkılamadı', result?.error || 'Lütfen tekrar dene.');
+    else window.location.href = `${location.origin}/?fresh=1`;
+    E.exitBtn.disabled = false;
+  });
+});
 E.chatForm.addEventListener('submit', event => { event.preventDefault(); const text = E.chatInput.value.trim(); if (text) { emitAction('chat', { text }); E.chatInput.value = ''; } });
 E.shareBtn.addEventListener('click', shareRoom); E.copyCodeBtn.addEventListener('click', shareRoom);
 async function shareRoom() {
-  const url = `${location.origin}?room=${encodeURIComponent(roomCode)}`, text = `Konya Mülk Oyunu oda kodu: ${roomCode}`;
-  try { if (navigator.share) await navigator.share({ title:'Konya Mülk Oyunu', text, url }); else { await navigator.clipboard.writeText(url); toast('Davet bağlantısı kopyalandı', roomCode); } } catch {}
+  const url = `${location.origin}?room=${encodeURIComponent(roomCode)}`, text = `KonyaPoly oda kodu: ${roomCode}`;
+  try { if (navigator.share) await navigator.share({ title:'KonyaPoly', text, url }); else { await navigator.clipboard.writeText(url); toast('Davet bağlantısı kopyalandı', roomCode); } } catch {}
 }
 
 function createDieFace(el) {
@@ -290,23 +302,32 @@ async function animateTokens(oldState, newState) {
 window.addEventListener('resize', () => state && placeTokens(state.players));
 
 function showGameNotification(notification) {
-  if (!notification) return; notificationQueue.push(notification); if (!E.cardOverlay.classList.contains('hidden')) return; showNextCard();
+  if (!notification) return;
+  notificationQueue.push(notification);
+  if (!E.tableNotice.classList.contains('hidden')) return;
+  showNextCard();
 }
 function showNextCard() {
   const notification = notificationQueue.shift(); if (!notification) return;
-  E.eventCard.className = `event-card ${notification.kind || 'system'}`;
-  E.cardSymbol.textContent = CARD_ICONS[notification.kind] || '◆';
-  E.cardType.textContent = String(notification.title || 'OYUN BİLDİRİMİ').toUpperCase();
-  E.cardTitle.textContent = notification.cardTitle || notification.title || 'Yeni olay';
-  E.cardMessage.textContent = notification.message || '';
-  E.cardPlayer.textContent = notification.playerName ? `${notification.playerName} için çekildi · Herkese gösterildi` : 'Tüm oyunculara bildirildi';
-  E.cardOverlay.classList.remove('hidden'); sound(notification.kind === 'winner' ? 'win' : 'card');
+  const duration = notification.kind === 'winner' ? 8000 : 5200;
+  E.tableNotice.className = `table-notice ${notification.kind || 'system'}`;
+  E.tableNotice.style.setProperty('--notice-duration', `${duration}ms`);
+  E.noticeSymbol.textContent = CARD_ICONS[notification.kind] || '◆';
+  E.noticeType.textContent = String(notification.title || 'OYUN BİLDİRİMİ').toUpperCase();
+  E.noticeTitle.textContent = notification.cardTitle || notification.title || 'Yeni olay';
+  E.noticeMessage.textContent = notification.message || '';
+  sound(notification.kind === 'winner' ? 'win' : 'card');
   if (notification.kind === 'winner') launchConfetti();
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(hideTableNotice, duration);
 }
-function closeCard() { E.cardOverlay.classList.add('hidden'); setTimeout(showNextCard, 140); }
-E.closeCardBtn.addEventListener('click', closeCard);
-E.cardOverlay.addEventListener('click', event => { if (event.target === E.cardOverlay) closeCard(); });
-document.addEventListener('keydown', event => { if (event.key === 'Escape' && !E.cardOverlay.classList.contains('hidden')) closeCard(); });
+function hideTableNotice() {
+  E.tableNotice.classList.add('leaving');
+  setTimeout(() => {
+    E.tableNotice.className = 'table-notice hidden';
+    showNextCard();
+  }, 260);
+}
 function launchConfetti() {
   E.confetti.innerHTML = '';
   const colors = ['#44df9b','#f0bd55','#58a6ff','#ff6b6b','#f5f0e6'];
