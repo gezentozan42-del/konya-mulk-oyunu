@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: konya-mulk-oyunu
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATA_FILE
+        value: /tmp/rooms.json
