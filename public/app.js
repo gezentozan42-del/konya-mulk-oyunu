@@ -126,7 +126,7 @@ function renderBoard() {
     el.style.setProperty('--tile-accent', groupColor(tile));
     el.style.setProperty('--owner-color', owner ? PLAYER_COLORS[owner.color] : 'transparent');
     el.classList.toggle('owned', Boolean(owner));
-    el.innerHTML = `${isBuyable(tile) ? `<span class="color-band" style="background:${groupColor(tile)}"></span>` : ''}<strong>${esc(tile.name)}</strong><small>${esc(tileSubtitle(tile))}</small><span class="tile-icon-mini">${TILE_ICONS[tile.type] || '•'}</span>${asset?.level ? `<span class="building-row ${asset.level === 5 ? 'hotel' : ''}"><i>⌂</i><b>${buildings(asset)}</b></span>` : ''}${owner ? `<span class="owner-markers"><i class="owner-dot" title="${esc(owner.name)}" style="background:${PLAYER_COLORS[owner.color]}"></i><b>${esc(owner.name.slice(0, 2).toUpperCase())}</b></span>` : ''}`;
+    el.innerHTML = `${isBuyable(tile) ? `<span class="color-band" style="background:${groupColor(tile)}"></span>` : ''}<strong>${esc(tile.name)}</strong><small>${esc(tileSubtitle(tile))}</small><span class="tile-icon-mini">${TILE_ICONS[tile.type] || '•'}</span>${asset?.level ? `<span class="building-row ${asset.level === 5 ? 'hotel' : ''}"><i>⌂</i><b>${buildings(asset)}</b></span>` : ''}`;
     el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
     E.board.appendChild(el);
   });

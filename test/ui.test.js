@@ -28,7 +28,8 @@ test('tapular dokununca kira kartı ve renkli takas alanı açar', () => {
   assert.match(css, /\.property-card\{/);
   assert.match(css, /\.trade-swatch\{/);
   assert.match(app, /Otel maliyeti/);
-  assert.match(app, /owner-markers/);
+  assert.match(app, /--owner-color/);
+  assert.doesNotMatch(app, /owner\.name\.slice\(0, 2\)/);
   assert.match(css, /\.tile\.owned\{/);
   assert.match(css, /\.building-row\.hotel/);
 });
