@@ -44,6 +44,7 @@ test('satın alma parayı düşürür ve mülkü oyuncuya bağlar', () => {
   assert.equal(first.money, 1440);
   assert.equal(room.assets['3'].ownerId, first.id);
   assert.equal(room.phase, 'resolved');
+  assert.equal(room.notifications.at(-1).kind, 'buy');
 });
 
 test('kira sunucu tarafından hesaplanıp iki oyuncu arasında aktarılır', () => {
@@ -55,6 +56,7 @@ test('kira sunucu tarafından hesaplanıp iki oyuncu arasında aktarılır', () 
   assert.equal(second.money, 1504);
   assert.equal(first.inJail, false);
   assert.equal(first.pos, 3);
+  assert.equal(room.notifications.at(-1).kind, 'rent');
 });
 
 test('yalnızca açık bir hapis olayı oyuncuyu hapse gönderir', () => {
@@ -80,6 +82,17 @@ test('Şans kartı bütün ekranlar için ortak bildirim üretir', () => {
   assert.equal(room.notifications.at(-1).id, notification.id);
   assert.equal(first.pos, 0);
   assert.equal(first.money, 1700);
+  assert.deepEqual(room.lastMovement, { ...room.lastMovement, from:7, to:0, steps:33, direction:'forward', reason:'card', pace:'fast' });
+});
+
+test('kartla hapse gidiş sunucuya hareket rotası olarak yazılır', () => {
+  const { room, first } = roomWithTwo();
+  first.pos = 7;
+  const cardIndex = game.chanceCards.findIndex(card => card.action === 'jail');
+  const notification = game.applyCard(room, first, 'chance', () => (cardIndex + 0.1) / game.chanceCards.length);
+  assert.equal(notification.cardTitle, 'Mahkeme Kararı');
+  assert.equal(first.pos, 10);
+  assert.deepEqual(room.lastMovement, { ...room.lastMovement, from:7, to:10, steps:3, direction:'forward', reason:'card', pace:'fast' });
 });
 
 test('Murat özel kartı herkese tatlı ısmarlatır', () => {

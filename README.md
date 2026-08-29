@@ -2,6 +2,8 @@
 
 2–5 arkadaşın aynı odada gerçek zamanlı oynadığı, Konya temalı profesyonel mülk oyunu. Oyun kuralları ve oda durumu sunucuda yönetilir; zar, sıra, mülkler, takaslar, açık artırma, Şans/Şehir Sandığı kartları ve ortak bildirimler bütün oyuncularda eş zamanlı görünür.
 
+Tahtadaki karelere dokununca kira, ev/otel maliyeti ve sahiplik bilgileri açılır. Önemli satın alma, kira ve takas olayları masa üzerindeki akış çerçevesinde görünür; kartların hedef hamleleri piyonun kare kare ilerlemesiyle izlenir. Telefon görünümünde renk grupları yüksek kontrastlı ve takas mülkleri renk etiketlidir.
+
 ## Railway kurulumu
 
 1. Bu klasörü bir GitHub deposuna gönderin ve Railway'de **Deploy from GitHub Repo** ile seçin.

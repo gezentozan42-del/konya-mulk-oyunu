@@ -76,12 +76,18 @@
                   </div>
                   <i class="notice-timer" aria-hidden="true"></i>
                 </div>
+                <div id="propertyCard" class="property-card hidden" role="dialog" aria-live="polite" aria-label="Tapu bilgisi">
+                  <button id="propertyCardClose" class="property-card-close" type="button" aria-label="Tapu kartını kapat">×</button>
+                  <div class="property-card-top"><span class="property-card-accent"></span><div><small id="propertyCardType">TAPU BİLGİSİ</small><h3 id="propertyCardTitle">Mülk</h3><p id="propertyCardMeta">Grup</p></div></div>
+                  <div id="propertyCardBody" class="property-card-body"></div>
+                </div>
                 <div class="dice-stage">
                   <div class="die" id="die1" aria-label="Birinci zar"></div>
                   <div class="die" id="die2" aria-label="İkinci zar"></div>
                 </div>
                 <div class="center-readout"><small>SON ZAR</small><strong id="diceTotal">—</strong></div>
                 <div class="center-stats"><span>Park Kasası <b id="pot">₺0</b></span><span>Tur <b id="turnNumber">—</b></span></div>
+                <div class="table-feed" aria-label="Masa akışı"><small>MASA AKIŞI</small><div id="tableFeedItems"></div></div>
               </section>
             </div>
             <div id="tokenLayer" class="token-layer"></div>

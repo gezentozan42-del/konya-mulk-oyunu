@@ -79,6 +79,7 @@ const chestCards = [
 function id(prefix = '') { return prefix + crypto.randomBytes(8).toString('hex'); }
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function cleanName(name) { return String(name || '').trim().replace(/\s+/g, ' ').slice(0, 18); }
+function moneyText(value) { return `₺${Math.round(Number(value) || 0).toLocaleString('tr-TR')}`; }
 function log(room, msg, kind = 'info') {
   room.log.push({ id: id('l_'), msg, kind, at: Date.now() });
   room.log = room.log.slice(-120);
@@ -113,7 +114,8 @@ function createRoom(code, playerName, socketId) {
     pendingTrades: [],
     chat: [],
     log: [],
-    notifications: []
+    notifications: [],
+    lastMovement: null
   };
   const player = addPlayer(room, playerName, socketId, playerId, resumeToken);
   log(room, `${player.name} odayı kurdu.`, 'join');
@@ -184,7 +186,19 @@ function transfer(from, to, amount) {
   if (to) to.money += safe;
   return safe;
 }
-function movePlayer(room, player, steps) {
+function recordMovement(room, player, from, to, options = {}) {
+  const direction = options.direction || 'forward';
+  const fallbackSteps = direction === 'backward'
+    ? (from - to + board.length) % board.length
+    : (to - from + board.length) % board.length;
+  const steps = Math.min(board.length, Math.max(0, Math.abs(Math.round(Number(options.steps) || fallbackSteps))));
+  if (from === to && steps === 0) return;
+  room.lastMovement = {
+    id: id('mv_'), playerId: player.id, from, to, steps, direction,
+    reason: options.reason || 'move', pace: options.pace || 'normal'
+  };
+}
+function movePlayer(room, player, steps, options = {}) {
   const old = player.pos;
   const next = ((old + steps) % board.length + board.length) % board.length;
   if (steps > 0 && old + steps >= board.length) {
@@ -192,22 +206,36 @@ function movePlayer(room, player, steps) {
     log(room, `${player.name} Konya'ya Hoşgeldin karesinden geçti ve ₺${START_BONUS} aldı.`, 'money');
   }
   player.pos = next;
+  recordMovement(room, player, old, next, {
+    ...options,
+    direction: steps < 0 ? 'backward' : 'forward',
+    steps: Math.abs(steps)
+  });
   return next;
 }
-function moveTo(room, player, position, collectStart = false) {
+function moveTo(room, player, position, collectStart = false, options = {}) {
+  const old = player.pos;
+  const target = ((Number(position) % board.length) + board.length) % board.length;
+  const direction = options.direction || 'forward';
+  const steps = direction === 'backward'
+    ? (old - target + board.length) % board.length
+    : (target - old + board.length) % board.length;
   if (collectStart && position <= player.pos && position !== player.pos) {
     player.money += START_BONUS;
     log(room, `${player.name} Konya'ya Hoşgeldin karesinden geçti ve ₺${START_BONUS} aldı.`, 'money');
   }
-  player.pos = position;
+  player.pos = target;
+  recordMovement(room, player, old, target, { ...options, direction, steps });
 }
 function sendToJail(room, player, options = {}) {
+  const old = player.pos;
   player.pos = 10;
   player.inJail = true;
   player.jailTurns = 0;
   room.extraTurn = false;
   room.doublesCount = 0;
   room.phase = 'resolved';
+  recordMovement(room, player, old, 10, { direction: 'forward', reason: options.reason || 'jail', pace: options.pace || 'fast' });
   log(room, `${player.name} hapse gitti.`, 'jail');
   if (options.notify === false) return null;
   return notify(room, {
@@ -237,13 +265,15 @@ function applyCard(room, player, kind, random = Math.random) {
     player.money += card.amount;
     if (card.amount < 0 && card.toPot) room.freeParkingPot += Math.abs(card.amount);
   } else if (card.action === 'move') {
-    moveTo(room, player, card.position, card.collectStart);
-    resolveLanding(room, player, { fromCard: true });
+    moveTo(room, player, card.position, card.collectStart, { reason:'card', pace:'fast' });
+    const landingNotification = resolveLanding(room, player, { fromCard: true });
+    if (landingNotification) notification.followUps = [landingNotification];
   } else if (card.action === 'moveRelative') {
-    movePlayer(room, player, card.amount);
-    resolveLanding(room, player, { fromCard: true });
+    movePlayer(room, player, card.amount, { reason:'card', pace:'fast' });
+    const landingNotification = resolveLanding(room, player, { fromCard: true });
+    if (landingNotification) notification.followUps = [landingNotification];
   } else if (card.action === 'jail') {
-    sendToJail(room, player, { notify: false });
+    sendToJail(room, player, { notify: false, reason:'card', pace:'fast' });
   } else if (card.action === 'repairs') {
     let amount = 0;
     for (const [i, asset] of ownedAssets(room, player.id)) {
@@ -269,8 +299,9 @@ function applyCard(room, player, kind, random = Math.random) {
   } else if (card.action === 'nearest') {
     const targets = board.map((t, i) => t.type === card.type ? i : -1).filter(i => i >= 0);
     const target = targets.find(i => i > player.pos) ?? targets[0];
-    moveTo(room, player, target, target < player.pos);
-    resolveLanding(room, player, { fromCard: true });
+    moveTo(room, player, target, target < player.pos, { reason:'card', pace:'fast' });
+    const landingNotification = resolveLanding(room, player, { fromCard: true });
+    if (landingNotification) notification.followUps = [landingNotification];
   }
   return notification;
 }
@@ -281,11 +312,19 @@ function resolveLanding(room, player, options = {}) {
     transfer(player, null, tile.amount);
     room.freeParkingPot += tile.amount;
     log(room, `${player.name}, ${tile.name} için ₺${tile.amount} ödedi.`, 'money');
+    return notify(room, {
+      kind:'money', title:'Ödeme', cardTitle:`${player.name} ödedi`,
+      message:`${tile.name} · ${moneyText(tile.amount)} kasaya aktarıldı.`
+    });
   } else if (tile.type === 'freeParking') {
     const amount = room.freeParkingPot;
     player.money += amount;
     room.freeParkingPot = 0;
     log(room, `${player.name}, Kültür Parkı kasasından ₺${amount} aldı.`, 'money');
+    return notify(room, {
+      kind:'money', title:'Park Kasası', cardTitle:`${player.name} kasayı aldı`,
+      message:`Kültür Parkı’ndan ${moneyText(amount)} toplandı.`
+    });
   } else if (tile.type === 'goToJail') {
     return sendToJail(room, player, {
       title: 'Hapse Git',
@@ -303,6 +342,10 @@ function resolveLanding(room, player, options = {}) {
         const rent = calculateRent(room, player.pos, (room.lastRoll || []).reduce((a, b) => a + b, 0));
         transfer(player, owner, rent);
         log(room, `${player.name}, ${owner.name} oyuncusuna ₺${rent} kira ödedi.`, 'rent');
+        return notify(room, {
+          kind:'rent', title:'Kira Ödemesi', cardTitle:`${player.name} → ${owner.name}`,
+          message:`${tile.name} için ${moneyText(rent)} kira ödendi.`
+        });
       }
     }
   }
@@ -333,7 +376,7 @@ function roll(room, playerId, dice) {
       cardTitle: 'Hapse Git',
       message: `${player.name} art arda üç çift attığı için hapse gönderildi.`
     });
-    return { values, notification };
+    return { values, notification, notifications: notification ? [notification] : [] };
   }
   let leftJailWithDouble = false;
   if (player.inJail) {
@@ -361,7 +404,8 @@ function roll(room, playerId, dice) {
   const notification = resolveLanding(room, player);
   room.extraTurn = isDouble && !leftJailWithDouble && !player.inJail;
   touch(room);
-  return { values, notification };
+  const notifications = notification ? [notification, ...(notification.followUps || [])] : [];
+  return { values, notification, notifications };
 }
 function payJail(room, playerId) {
   const player = assertTurn(room, playerId);
@@ -384,7 +428,12 @@ function buy(room, playerId) {
   room.assets[String(player.pos)] = { ownerId: player.id, level: 0, mortgaged: false };
   room.phase = 'resolved';
   log(room, `${player.name}, ${tile.name} mülkünü ₺${tile.price} karşılığında aldı.`, 'buy');
+  const notification = notify(room, {
+    kind:'buy', title:'Yeni Tapu', cardTitle:`${player.name} aldı`,
+    message:`${tile.name} · ${moneyText(tile.price)} karşılığında satın alındı.`
+  });
   touch(room);
+  return notification;
 }
 function startAuction(room, playerId) {
   const player = assertTurn(room, playerId), tile = board[player.pos];
@@ -482,11 +531,19 @@ function build(room, playerId, index) {
   if (player.money < tile.buildCost) throw new Error('Yeterli paran yok.');
   player.money -= tile.buildCost; asset.level += 1;
   log(room, `${player.name}, ${tile.name} üzerine ${asset.level === 5 ? 'otel' : `${asset.level}. evi`} kurdu.`, 'build'); touch(room);
+  return notify(room, {
+    kind:'build', title:'Yatırım Yapıldı', cardTitle:`${tile.name} geliştirildi`,
+    message:`${player.name} ${asset.level === 5 ? 'otel' : `${asset.level}. ev`} kurdu · ${moneyText(tile.buildCost)}.`
+  });
 }
 function sellBuilding(room, playerId, index) {
   const player = playerById(room, playerId), { tile, asset } = validateBuild(room, player, Number(index), true);
   asset.level -= 1; player.money += Math.floor(tile.buildCost / 2);
   log(room, `${player.name}, ${tile.name} üzerindeki bir binayı sattı.`, 'build'); touch(room);
+  return notify(room, {
+    kind:'build', title:'Bina Satıldı', cardTitle:`${tile.name} boşaldı`,
+    message:`${player.name} bir binayı sattı · ${moneyText(Math.floor(tile.buildCost / 2))} aldı.`
+  });
 }
 function mortgage(room, playerId, index) {
   const player = playerById(room, playerId), tile = board[Number(index)], asset = room.assets[String(index)];
@@ -495,6 +552,10 @@ function mortgage(room, playerId, index) {
   if (groupHasBuildings) throw new Error('Önce renk grubundaki binaları satmalısın.');
   asset.mortgaged = true; player.money += Math.floor(tile.price / 2);
   log(room, `${player.name}, ${tile.name} mülkünü ipotek etti.`, 'mortgage'); touch(room);
+  return notify(room, {
+    kind:'money', title:'İpotek', cardTitle:`${tile.name} ipotek edildi`,
+    message:`${player.name} ${moneyText(Math.floor(tile.price / 2))} aldı.`
+  });
 }
 function unmortgage(room, playerId, index) {
   const player = playerById(room, playerId), tile = board[Number(index)], asset = room.assets[String(index)];
@@ -503,6 +564,10 @@ function unmortgage(room, playerId, index) {
   if (player.money < cost) throw new Error('Yeterli paran yok.');
   asset.mortgaged = false; player.money -= cost;
   log(room, `${player.name}, ${tile.name} ipoteğini ₺${cost} karşılığında kaldırdı.`, 'mortgage'); touch(room);
+  return notify(room, {
+    kind:'money', title:'İpotek Kaldırıldı', cardTitle:tile.name,
+    message:`${player.name} ${moneyText(cost)} ödedi.`
+  });
 }
 function proposeTrade(room, playerId, data) {
   const from = playerById(room, playerId), to = playerById(room, data.toId);
@@ -526,14 +591,23 @@ function respondTrade(room, playerId, tradeId, accept) {
   if (!trade) throw new Error('Takas teklifi bulunamadı.');
   const from = playerById(room, trade.fromId), to = playerById(room, trade.toId);
   room.pendingTrades = room.pendingTrades.filter(t => t.id !== trade.id);
-  if (!accept) { log(room, `${to.name}, ${from.name} oyuncusunun teklifini reddetti.`, 'trade'); touch(room); return; }
+  if (!accept) {
+    log(room, `${to.name}, ${from.name} oyuncusunun teklifini reddetti.`, 'trade');
+    const notification = notify(room, {
+      kind:'trade', title:'Takas Reddedildi', cardTitle:`${to.name} teklifi reddetti`,
+      message:`${from.name} oyuncusunun takas teklifi kabul edilmedi.`
+    });
+    touch(room);
+    return notification;
+  }
   if (!from || !to || from.money < trade.offerCash || to.money < trade.requestCash) throw new Error('Takas koşulları artık geçerli değil.');
   if (!trade.offerAssets.every(i => room.assets[String(i)]?.ownerId === from.id) || !trade.requestAssets.every(i => room.assets[String(i)]?.ownerId === to.id)) throw new Error('Takas mülkleri artık geçerli değil.');
   transfer(from, to, trade.offerCash); transfer(to, from, trade.requestCash);
   trade.offerAssets.forEach(i => { room.assets[String(i)].ownerId = to.id; });
   trade.requestAssets.forEach(i => { room.assets[String(i)].ownerId = from.id; });
   log(room, `${from.name} ile ${to.name} arasındaki takas tamamlandı.`, 'trade');
-  notify(room, { kind: 'trade', title: 'Takas Tamamlandı', cardTitle: `${from.name} ↔ ${to.name}`, message: 'Mülk ve nakit değişimi başarıyla gerçekleşti.' }); touch(room);
+  const notification = notify(room, { kind: 'trade', title: 'Takas Tamamlandı', cardTitle: `${from.name} ↔ ${to.name}`, message: 'Mülk ve nakit değişimi başarıyla gerçekleşti.' }); touch(room);
+  return notification;
 }
 function eliminatePlayer(room, player, reason = 'bankrupt') {
   player.bankrupt = true; player.money = 0;

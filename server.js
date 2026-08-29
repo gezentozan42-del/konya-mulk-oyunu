@@ -109,7 +109,8 @@ function scheduleSave(room) {
 function broadcast(room, notification) {
   scheduleSave(room);
   io.to(room.code).emit('state', game.publicState(room));
-  if (notification) io.to(room.code).emit('game-notification', notification);
+  const notifications = Array.isArray(notification) ? notification : notification ? [notification] : [];
+  notifications.filter(Boolean).forEach(item => io.to(room.code).emit('game-notification', item));
 }
 function session(socket) {
   const code = socket.data.roomCode;
@@ -191,14 +192,14 @@ io.on('connection', socket => {
   action(socket, 'roll', () => {
     const { room, player } = session(socket);
     const result = game.roll(room, player.id);
-    broadcast(room, result.notification);
+    broadcast(room, result.notifications || result.notification);
     return { dice: result.values };
   });
   action(socket, 'pay-jail', () => {
     const { room, player } = session(socket); game.payJail(room, player.id); broadcast(room);
   });
   action(socket, 'buy', () => {
-    const { room, player } = session(socket); game.buy(room, player.id); broadcast(room);
+    const { room, player } = session(socket); const notification = game.buy(room, player.id); broadcast(room, notification);
   });
   action(socket, 'auction-start', () => {
     const { room, player } = session(socket); game.startAuction(room, player.id); broadcast(room);
@@ -235,22 +236,31 @@ io.on('connection', socket => {
     return { left: true };
   });
   action(socket, 'build', ({ index }) => {
-    const { room, player } = session(socket); game.build(room, player.id, index); broadcast(room);
+    const { room, player } = session(socket); const notification = game.build(room, player.id, index); broadcast(room, notification);
   });
   action(socket, 'sell-building', ({ index }) => {
-    const { room, player } = session(socket); game.sellBuilding(room, player.id, index); broadcast(room);
+    const { room, player } = session(socket); const notification = game.sellBuilding(room, player.id, index); broadcast(room, notification);
   });
   action(socket, 'mortgage', ({ index }) => {
-    const { room, player } = session(socket); game.mortgage(room, player.id, index); broadcast(room);
+    const { room, player } = session(socket); const notification = game.mortgage(room, player.id, index); broadcast(room, notification);
   });
   action(socket, 'unmortgage', ({ index }) => {
-    const { room, player } = session(socket); game.unmortgage(room, player.id, index); broadcast(room);
+    const { room, player } = session(socket); const notification = game.unmortgage(room, player.id, index); broadcast(room, notification);
   });
   action(socket, 'trade-propose', data => {
-    const { room, player } = session(socket); game.proposeTrade(room, player.id, data); broadcast(room);
+    const { room, player } = session(socket);
+    const trade = game.proposeTrade(room, player.id, data);
+    const target = game.playerById(room, trade.toId);
+    const names = indexes => indexes.map(index => game.board[index]?.name).filter(Boolean).join(', ') || 'mülk yok';
+    const notification = game.notify(room, {
+      kind:'trade', title:'Takas Teklifi', cardTitle:`${player.name} → ${target?.name || 'oyuncu'}`,
+      message:`Veriyor: ${trade.offerCash ? `₺${trade.offerCash}` : '₺0'} + ${names(trade.offerAssets)} · İstiyor: ${trade.requestCash ? `₺${trade.requestCash}` : '₺0'} + ${names(trade.requestAssets)}.`
+    });
+    broadcast(room, notification);
+    return trade;
   });
   action(socket, 'trade-respond', ({ tradeId, accept }) => {
-    const { room, player } = session(socket); game.respondTrade(room, player.id, tradeId, Boolean(accept)); broadcast(room, accept ? room.notifications.at(-1) : null);
+    const { room, player } = session(socket); const notification = game.respondTrade(room, player.id, tradeId, Boolean(accept)); broadcast(room, notification);
   });
   action(socket, 'bankrupt', () => {
     const { room, player } = session(socket); game.bankrupt(room, player.id); broadcast(room, room.notifications.at(-1));

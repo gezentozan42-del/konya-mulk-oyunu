@@ -4,21 +4,22 @@ const socket = io({ transports: ['websocket', 'polling'] });
 const $ = id => document.getElementById(id);
 const E = Object.fromEntries([
   'connectionBar','lobbyView','gameView','nameInput','codeInput','createBtn','joinBtn','loginStatus','roomCode','copyCodeBtn','voiceStatus','voiceBtn','muteBtn','shareBtn','exitBtn',
-  'turnBanner','turnText','turnHint','board','tokenLayer','die1','die2','diceTotal','pot','turnNumber','tableNotice','noticeSymbol','noticeType','noticeTitle','noticeMessage','tileIcon','tileName','tileInfo','startBtn','payJailBtn','rollBtn','buyBtn','auctionBtn','endBtn','skipBtn','bankruptBtn','auctionBox','incomingTrade','playerCount','players','portfolioValue','myAssets','tradeTarget','offerCash','requestCash','offerAssets','requestAssets','tradeBtn','chat','chatForm','chatInput','log','toastStack','confetti'
+  'turnBanner','turnText','turnHint','board','tokenLayer','die1','die2','diceTotal','pot','turnNumber','tableNotice','noticeSymbol','noticeType','noticeTitle','noticeMessage','propertyCard','propertyCardClose','propertyCardType','propertyCardTitle','propertyCardMeta','propertyCardBody','tableFeedItems','tileIcon','tileName','tileInfo','startBtn','payJailBtn','rollBtn','buyBtn','auctionBtn','endBtn','skipBtn','bankruptBtn','auctionBox','incomingTrade','playerCount','players','portfolioValue','myAssets','tradeTarget','offerCash','requestCash','offerAssets','requestAssets','tradeBtn','chat','chatForm','chatInput','log','toastStack','confetti'
 ].map(id => [id, $(id)]));
 
 const GROUP_COLORS = {
-  'Tarihi Karatay':'#9b7352','Akabe Çevresi':'#54bce8','Meram Bağları':'#de78ae','Karatay Doğu':'#e68b37',
-  'Selçuklu Kuzey':'#df4d54','Kampüs Çevresi':'#e8cf51','Meram Güney':'#54b86b','Selçuklu Merkez':'#3e72cf',station:'#8d9a95',utility:'#8774c8'
+  'Tarihi Karatay':'#ff6b35','Akabe Çevresi':'#00b8d9','Meram Bağları':'#e5487b','Karatay Doğu':'#f5b700',
+  'Selçuklu Kuzey':'#ef4444','Kampüs Çevresi':'#84cc16','Meram Güney':'#14b8a6','Selçuklu Merkez':'#6366f1',station:'#94a3b8',utility:'#c084fc'
 };
 const PLAYER_COLORS = ['#58a6ff','#ff6b6b','#a878ff','#f6c453','#45d483'];
 const PIP_MAP = {1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 const TILE_ICONS = {start:'➜',property:'⌂',station:'◆',utility:'⚡',tax:'₺',chance:'?',chest:'▣',jail:'◷',freeParking:'♨',goToJail:'!'};
-const CARD_ICONS = {chance:'?',chest:'▣',winner:'♛',system:'◆',trade:'⇄',jail:'!'};
+const CARD_ICONS = {chance:'?',chest:'▣',winner:'♛',system:'◆',trade:'⇄',jail:'!',buy:'₺',rent:'↔',money:'₺',build:'⌂',mortgage:'₺',leave:'↩',auction:'◆'};
 
 let state = null, previousState = null, myPlayerId = null, roomCode = null, resumeToken = null;
 let rolling = false, rollingTimer = null, animationVersion = 0, audioContext = null;
 let noticeTimer = null;
+let selectedTileIndex = null;
 let localStream = null, micMuted = false, iceServers = null;
 const tokenElements = new Map(), peers = new Map(), pendingCandidates = new Map(), notificationQueue = [];
 
@@ -31,6 +32,10 @@ function isBuyable(tile) { return ['property','station','utility'].includes(tile
 function playerColor(id) { const item = player(id); return PLAYER_COLORS[item?.color ?? 0]; }
 function assetEntries(ownerId) { return Object.entries(state?.assets || {}).filter(([, asset]) => asset.ownerId === ownerId).map(([index, asset]) => ({ index:Number(index), asset, tile:state.board[Number(index)] })); }
 function propertyCount(id) { return assetEntries(id).length; }
+function tileAsset(index) { return state?.assets?.[String(index)] || null; }
+function tileOwner(index) { const asset = tileAsset(index); return asset ? player(asset.ownerId) : null; }
+function groupLabel(tile) { return tile.group || (tile.type === 'station' ? 'Ulaşım' : tile.type === 'utility' ? 'Altyapı' : 'Özel kare'); }
+function cardMoney(value) { return `₺${Math.round(Number(value) || 0).toLocaleString('tr-TR')}`; }
 function saveSession(data) { localStorage.setItem('konyaMulkSessionV2', JSON.stringify(data)); }
 function loadSession() { try { return JSON.parse(localStorage.getItem('konyaMulkSessionV2') || 'null'); } catch { return null; } }
 function setStatus(message, error = false) { E.loginStatus.textContent = message; E.loginStatus.classList.toggle('error', error); }
@@ -118,7 +123,11 @@ function renderBoard() {
     const owner = asset && player(asset.ownerId);
     el.className = `tile ${[0,10,20,30].includes(index) ? 'corner' : ''} ${['chance','chest','tax','freeParking','goToJail'].includes(tile.type) ? 'special' : ''} ${asset?.mortgaged ? 'mortgaged' : ''} ${currentPosition === index && state.started ? 'current' : ''}`;
     el.style.gridRow = row; el.style.gridColumn = column; el.dataset.tileIndex = index;
+    el.style.setProperty('--tile-accent', groupColor(tile));
     el.innerHTML = `${isBuyable(tile) ? `<span class="color-band" style="background:${groupColor(tile)}"></span>` : ''}<strong>${esc(tile.name)}</strong><small>${esc(tileSubtitle(tile))}</small><span class="tile-icon-mini">${TILE_ICONS[tile.type] || '•'}</span>${asset?.level ? `<span class="building-row">${buildings(asset)}</span>` : ''}${owner ? `<span class="owner-markers"><i class="owner-dot" title="${esc(owner.name)}" style="background:${PLAYER_COLORS[owner.color]}"></i></span>` : ''}`;
+    el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
+    el.addEventListener('click', () => showPropertyCard(index));
+    el.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showPropertyCard(index); } });
     E.board.appendChild(el);
   });
 }
@@ -141,7 +150,7 @@ function renderTrade() {
   E.tradeTarget.innerHTML = others.map(item => `<option value="${item.id}">${esc(item.name)}</option>`).join('');
   if (others.some(item => item.id === old)) E.tradeTarget.value = old;
   const targetId = E.tradeTarget.value;
-  const checks = entries => entries.map(({ index, tile }) => `<label><input type="checkbox" value="${index}"> ${esc(tile.name)}</label>`).join('') || '<span class="empty-state">Mülk yok</span>';
+  const checks = entries => entries.map(({ index, tile }) => `<label class="trade-asset" style="--asset-color:${groupColor(tile)}"><input type="checkbox" value="${index}"><span class="trade-asset-copy"><i class="trade-swatch"></i><span><b>${esc(tile.name)}</b><small>${esc(groupLabel(tile))} · ${money(tile.price)}</small></span></span></label>`).join('') || '<span class="empty-state">Mülk yok</span>';
   E.offerAssets.innerHTML = checks(assetEntries(myPlayerId)); E.requestAssets.innerHTML = checks(assetEntries(targetId));
   E.tradeBtn.disabled = !targetId;
 }
@@ -157,9 +166,54 @@ function renderAuction() {
 function renderIncomingTrade() {
   const trade = state.pendingTrades?.find(item => item.toId === myPlayerId);
   E.incomingTrade.classList.toggle('hidden', !trade); if (!trade) return;
-  const names = list => list.map(index => state.board[index].name).join(', ') || '—';
-  E.incomingTrade.innerHTML = `<div class="auction-title">⇄ ${esc(ownerName(trade.fromId))} teklif gönderdi</div><div class="auction-meta">Veriyor: ${money(trade.offerCash)} + ${esc(names(trade.offerAssets))}<br>İstiyor: ${money(trade.requestCash)} + ${esc(names(trade.requestAssets))}</div><div class="action-grid"><button class="btn btn-primary" data-answer="yes">Kabul et</button><button class="btn btn-quiet" data-answer="no">Reddet</button></div>`;
+  const chips = list => list.map(index => { const tile = state.board[index]; return `<span class="trade-chip" style="--asset-color:${groupColor(tile)}"><i></i>${esc(tile.name)}</span>`; }).join('') || '<span class="trade-none">—</span>';
+  E.incomingTrade.innerHTML = `<div class="auction-title">⇄ ${esc(ownerName(trade.fromId))} teklif gönderdi</div><div class="trade-summary"><div><small>VERİYOR</small><b>${money(trade.offerCash)}</b><div class="trade-chip-list">${chips(trade.offerAssets)}</div></div><div><small>İSTİYOR</small><b>${money(trade.requestCash)}</b><div class="trade-chip-list">${chips(trade.requestAssets)}</div></div></div><div class="action-grid"><button class="btn btn-primary" data-answer="yes">Kabul et</button><button class="btn btn-quiet" data-answer="no">Reddet</button></div>`;
   E.incomingTrade.querySelectorAll('button').forEach(button => button.addEventListener('click', () => emitAction('trade-respond', { tradeId:trade.id, accept:button.dataset.answer === 'yes' })));
+}
+
+function rentRows(tile, asset) {
+  if (tile.type === 'property') {
+    const levels = ['Arsa', '1 ev', '2 ev', '3 ev', '4 ev', 'Otel'];
+    const groupComplete = asset?.ownerId && tile.group && state.board.filter(item => item.group === tile.group).every(item => {
+      const tileIndex = state.board.indexOf(item);
+      return state.assets[String(tileIndex)]?.ownerId === asset.ownerId;
+    });
+    return tile.rent.map((value, index) => `<span><small>${levels[index]}${index === 0 && groupComplete ? ' · çift' : ''}</small><b>${money(index === 0 && groupComplete ? value * 2 : value)}</b></span>`).join('');
+  }
+  if (tile.type === 'station') return ['1 istasyon', '2 istasyon', '3 istasyon', '4 istasyon'].map((label, index) => `<span><small>${label}</small><b>${money([25,50,100,200][index])}</b></span>`).join('');
+  if (tile.type === 'utility') return `<span><small>1 altyapı</small><b>4× zar</b></span><span><small>2 altyapı</small><b>10× zar</b></span>`;
+  return '';
+}
+function renderPropertyCard(index = selectedTileIndex) {
+  if (index === null || index === undefined || !state?.board[index]) return;
+  const tile = state.board[index], asset = tileAsset(index), owner = tileOwner(index);
+  E.propertyCard.className = `property-card ${isBuyable(tile) ? 'buyable' : 'special'}`;
+  E.propertyCard.style.setProperty('--property-accent', groupColor(tile));
+  E.propertyCardType.textContent = isBuyable(tile) ? (tile.type === 'property' ? 'TAPU BİLGİSİ' : tile.type === 'station' ? 'ULAŞIM BİLGİSİ' : 'ALTYAPI BİLGİSİ') : 'KARE BİLGİSİ';
+  E.propertyCardTitle.textContent = tile.name;
+  E.propertyCardMeta.textContent = `${groupLabel(tile)}${owner ? ` · Sahibi: ${owner.name}` : ''}`;
+  if (tile.type === 'property') {
+    const ownerLine = asset ? (asset.mortgaged ? 'İpotekli' : asset.level === 5 ? 'Otel kurulu' : asset.level ? `${asset.level} ev kurulu` : 'Arsa') : 'Satışta';
+    E.propertyCardBody.innerHTML = `<div class="property-price"><span>Satın alma</span><b>${money(tile.price)}</b></div><div class="rent-heading"><span>KİRA TABLOSU</span><small>${esc(ownerLine)}</small></div><div class="rent-grid">${rentRows(tile, asset)}</div><div class="property-foot"><span>Ev maliyeti <b>${money(tile.buildCost)}</b></span><span>İpotek <b>${money(Math.floor(tile.price / 2))}</b></span></div>`;
+  } else if (tile.type === 'station') {
+    E.propertyCardBody.innerHTML = `<div class="property-price"><span>Satın alma</span><b>${money(tile.price)}</b></div><div class="rent-heading"><span>İSTASYON KİRASI</span><small>${owner ? `${assetEntries(owner.id).filter(entry => entry.tile.type === 'station').length} istasyon sende` : 'Sahip sayısına göre'}</small></div><div class="rent-grid">${rentRows(tile, asset)}</div>`;
+  } else if (tile.type === 'utility') {
+    E.propertyCardBody.innerHTML = `<div class="property-price"><span>Satın alma</span><b>${money(tile.price)}</b></div><div class="rent-heading"><span>ZAR ÇARPANI</span><small>Son zar toplamı ile hesaplanır</small></div><div class="rent-grid">${rentRows(tile, asset)}</div>`;
+  } else {
+    E.propertyCardBody.innerHTML = `<div class="special-copy"><span class="special-icon">${TILE_ICONS[tile.type] || '•'}</span><p>${esc(tile.text || 'Bu kare özel bir oyun alanıdır.')}</p></div>`;
+  }
+  E.propertyCard.classList.remove('hidden');
+}
+function hidePropertyCard() {
+  selectedTileIndex = null;
+  E.propertyCard.classList.add('hidden');
+}
+function logAccent(kind) {
+  return ({buy:'#f0bd55',rent:'#ff6e70',money:'#f0bd55',trade:'#a878ff',build:'#44df9b',auction:'#f0bd55',leave:'#ff6e70',jail:'#ff6e70',roll:'#44df9b'})[kind] || '#9bb0a7';
+}
+function renderTableFeed() {
+  const items = (state.log || []).slice(-3).reverse();
+  E.tableFeedItems.innerHTML = items.map(item => `<div class="feed-item" style="--feed-accent:${logAccent(item.kind)}" title="${esc(item.msg)}"><i></i><span>${esc(item.msg)}</span></div>`).join('') || '<div class="feed-empty">Masa hareketleri burada görünür.</div>';
 }
 function renderChatAndLog() {
   E.chat.innerHTML = (state.chat || []).slice(-60).map(message => `<div class="message"><b>${esc(message.name)}</b>${esc(message.text)}</div>`).join('') || '<div class="empty-state">Masa sohbeti burada görünecek.</div>';
@@ -190,10 +244,13 @@ function render() {
   E.skipBtn.classList.toggle('hidden', !canSkip);
   E.bankruptBtn.classList.toggle('hidden', !(myTurn && me?.money < 0));
   if (state.lastRoll) E.diceTotal.textContent = `${state.lastRoll[0]} + ${state.lastRoll[1]} = ${state.lastRoll[0] + state.lastRoll[1]}`; else E.diceTotal.textContent = '—';
-  renderBoard(); renderPlayers(); renderAssets(); renderTrade(); renderAuction(); renderIncomingTrade(); renderChatAndLog(); ensureTokens();
+  renderBoard(); renderPlayers(); renderAssets(); renderTrade(); renderAuction(); renderIncomingTrade(); renderChatAndLog(); renderTableFeed(); ensureTokens();
+  if (selectedTileIndex !== null && !E.propertyCard.classList.contains('hidden')) renderPropertyCard(selectedTileIndex);
 }
 
 E.tradeTarget.addEventListener('change', () => state && renderTrade());
+E.propertyCardClose.addEventListener('click', hidePropertyCard);
+document.addEventListener('keydown', event => { if (event.key === 'Escape') hidePropertyCard(); });
 E.tradeBtn.addEventListener('click', () => {
   const toId = E.tradeTarget.value; if (!toId) return;
   emitAction('trade-propose', {
@@ -280,22 +337,35 @@ function placeTokens(players) {
 function movementPath(oldPosition, newPosition) {
   if (oldPosition === undefined || newPosition === undefined || oldPosition === newPosition) return [newPosition];
   const distance = (newPosition - oldPosition + 40) % 40;
-  if (distance > 0 && distance <= 14) return Array.from({ length:distance }, (_, index) => (oldPosition + index + 1) % 40);
+  if (distance > 0) return Array.from({ length:distance }, (_, index) => (oldPosition + index + 1) % 40);
   return [newPosition];
+}
+function explicitMovementPath(movement) {
+  const steps = Math.min(40, Math.max(0, Number(movement.steps) || 0));
+  if (!steps) return [movement.to];
+  const delta = movement.direction === 'backward' ? -1 : 1;
+  return Array.from({ length:steps }, (_, index) => (movement.from + delta * (index + 1) + 400) % 40);
 }
 async function animateTokens(oldState, newState) {
   animationVersion += 1; const version = animationVersion; ensureTokens();
   if (!oldState) return placeTokens(newState.players);
   const changed = newState.players.filter(item => { const old = oldState.players.find(candidate => candidate.id === item.id); return old && old.pos !== item.pos && !item.bankrupt; });
   if (!changed.length) return placeTokens(newState.players);
+  const movement = newState.lastMovement && newState.lastMovement.id !== oldState.lastMovement?.id ? newState.lastMovement : null;
   const staged = JSON.parse(JSON.stringify(newState.players));
   changed.forEach(item => { const old = oldState.players.find(candidate => candidate.id === item.id), current = staged.find(candidate => candidate.id === item.id); current.pos = old.pos; });
   placeTokens(staged); await new Promise(resolve => setTimeout(resolve, 35));
-  const paths = new Map(changed.map(item => { const old = oldState.players.find(candidate => candidate.id === item.id); return [item.id, movementPath(old.pos, item.pos)]; }));
-  for (let step = 0; step < 15; step += 1) {
+  const paths = new Map(changed.map(item => {
+    const old = oldState.players.find(candidate => candidate.id === item.id);
+    const explicit = movement?.playerId === item.id ? explicitMovementPath(movement) : null;
+    return [item.id, explicit || movementPath(old.pos, item.pos)];
+  }));
+  const maxSteps = Math.max(...[...paths.values()].map(path => path.length));
+  const pace = movement?.pace === 'fast' ? 105 : 235;
+  for (let step = 0; step < maxSteps; step += 1) {
     if (version !== animationVersion) return; let moved = false;
     changed.forEach(item => { const path = paths.get(item.id), current = staged.find(candidate => candidate.id === item.id); if (step < path.length) { current.pos = path[step]; moved = true; } });
-    if (!moved) break; sound('step'); placeTokens(staged); await new Promise(resolve => setTimeout(resolve, 235));
+    if (!moved) break; sound('step'); placeTokens(staged); await new Promise(resolve => setTimeout(resolve, pace));
   }
   if (version === animationVersion) placeTokens(newState.players);
 }
@@ -316,7 +386,7 @@ function showNextCard() {
   E.noticeType.textContent = String(notification.title || 'OYUN BİLDİRİMİ').toUpperCase();
   E.noticeTitle.textContent = notification.cardTitle || notification.title || 'Yeni olay';
   E.noticeMessage.textContent = notification.message || '';
-  sound(notification.kind === 'winner' ? 'win' : 'card');
+  sound(notification.kind === 'winner' ? 'win' : ['buy','rent','money','build','mortgage'].includes(notification.kind) ? 'cash' : 'card');
   if (notification.kind === 'winner') launchConfetti();
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(hideTableNotice, duration);
