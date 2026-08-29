@@ -68,3 +68,9 @@ button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!impo
   .toast{padding:13px 14px}.toast b{font-size:13px}.toast span{font-size:11px}
   .center-readout small{font-size:6px}.center-readout strong{font-size:12px}.center-stats span{font-size:5.5px}
 }
+
+/* Takas ayrı sekmede; eksi bakiye ve bina hakkı mesajları görünür kalır. */
+.panel-tabs{grid-template-columns:repeat(4,1fr)}
+.asset-actions button:disabled{opacity:.45;cursor:not-allowed;filter:saturate(.35)}
+.trade-note{padding:9px 10px!important;margin:0!important;border:1px solid rgba(240,189,85,.28);border-radius:9px;background:rgba(240,189,85,.08);color:#ffe5a0!important;font-size:10px!important;line-height:1.4}
+@media(max-width:560px){.trade-note{font-size:10px!important;padding:9px!important}.panel-tabs button{font-size:11px}}

@@ -6,6 +6,8 @@ Tahtadaki karelere dokununca kira, ev/otel maliyeti ve sahiplik bilgileri açıl
 
 İpotekli tapular portföyden bankaya satılabilir; satışta tapu silinir ve banka ipotek bedelini öder.
 
+Şans destesindeki Kira Dokunulmazlığı kartı, kartı açan oyuncunun karşılaşacağı ilk kirayı siler. Binalar yalnızca sıra sahibinin turunda kurulabilir ve bir turda en fazla üç bina geliştirilebilir. Eksi bakiyedeki oyuncu, Takas sekmesinden mülkünü nakit karşılığında devrederek borcunu kapatabilir.
+
 ## Railway kurulumu
 
 1. Bu klasörü bir GitHub deposuna gönderin ve Railway'de **Deploy from GitHub Repo** ile seçin.

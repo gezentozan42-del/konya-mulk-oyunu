@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const COLORS = ['#58a6ff', '#ff6b6b', '#a878ff', '#f6c453', '#45d483'];
 const START_MONEY = 1500;
 const START_BONUS = 200;
+const MAX_BUILDS_PER_TURN = 3;
 
 const board = [
   { type: 'start', name: "Konya'ya Hoşgeldin", text: 'Geçerken ₺200 al' },
@@ -58,6 +59,7 @@ const chanceCards = [
   { title: 'Trafik Cezası', message: 'Kasaya ₺50 öde.', action: 'money', amount: -50, toPot: true },
   { title: 'Festival Ödülü', message: 'Şehir festivalinden ₺100 kazandın.', action: 'money', amount: 100 },
   { title: 'Konyaspor Galibiyeti', message: 'Tribün coştu, prim olarak ₺150 aldın.', action: 'money', amount: 150 },
+  { title: 'Kira Dokunulmazlığı', message: 'Önündeki ilk kira için dokunulmazlık kazandın; bir sonraki kirayı ödemezsin.', action: 'rentImmunity' },
   { title: 'Mahkeme Kararı', message: 'Doğrudan hapse git.', action: 'jail' },
   { title: 'Yol Bakım Gideri', message: 'Her ev için ₺25, her otel için ₺100 öde.', action: 'repairs', house: 25, hotel: 100 },
   { title: 'İstasyon Ekspresi', message: 'En yakın istasyona ilerle.', action: 'nearest', type: 'station' },
@@ -124,7 +126,8 @@ function createRoom(code, playerName, socketId) {
     chat: [],
     log: [],
     notifications: [],
-    lastMovement: null
+    lastMovement: null,
+    buildsThisTurn: 0
   };
   const player = addPlayer(room, playerName, socketId, playerId, resumeToken);
   log(room, `${player.name} odayı kurdu.`, 'join');
@@ -139,7 +142,7 @@ function addPlayer(room, playerName, socketId, playerId = id('p_'), resumeToken 
   const player = {
     id: playerId, resumeToken, socketId, name, color: room.players.length % COLORS.length,
     money: START_MONEY, pos: 0, connected: true, bankrupt: false, inJail: false,
-    jailTurns: 0, getOutCards: 0, joinedAt: Date.now()
+    jailTurns: 0, getOutCards: 0, rentImmunity: 0, joinedAt: Date.now()
   };
   room.players.push(player);
   touch(room);
@@ -273,6 +276,8 @@ function applyCard(room, player, kind, random = Math.random) {
   if (card.action === 'money') {
     player.money += card.amount;
     if (card.amount < 0 && card.toPot) room.freeParkingPot += Math.abs(card.amount);
+  } else if (card.action === 'rentImmunity') {
+    player.rentImmunity = (player.rentImmunity || 0) + 1;
   } else if (card.action === 'move') {
     moveTo(room, player, card.position, card.collectStart, { reason:'card', pace:'fast' });
     const landingNotification = resolveLanding(room, player, { fromCard: true });
@@ -349,6 +354,14 @@ function resolveLanding(room, player, options = {}) {
       const owner = playerById(room, asset.ownerId);
       if (owner && !owner.bankrupt) {
         const rent = calculateRent(room, player.pos, (room.lastRoll || []).reduce((a, b) => a + b, 0));
+        if (rent > 0 && (player.rentImmunity || 0) > 0) {
+          player.rentImmunity -= 1;
+          log(room, `${player.name}, ${tile.name} için kira dokunulmazlığını kullandı.`, 'rent');
+          return notify(room, {
+            kind:'rent', title:'Kira Dokunulmazlığı', cardTitle:`${player.name} kira ödemedi`,
+            message:`${tile.name} için ${moneyText(rent)} kira dokunulmazlığıyla karşılandı.`
+          });
+        }
         transfer(player, owner, rent);
         log(room, `${player.name}, ${owner.name} oyuncusuna ₺${rent} kira ödedi.`, 'rent');
         return notify(room, {
@@ -368,6 +381,7 @@ function startGame(room, playerId) {
   room.phase = 'roll';
   room.turnPlayerId = room.players[0].id;
   room.turnNumber = 1;
+  room.buildsThisTurn = 0;
   log(room, 'Oyun başladı. Bol şans!', 'system');
   notify(room, { kind: 'system', title: 'Oyun Başladı', cardTitle: 'Konya’da yatırım zamanı', message: `İlk sıra ${room.players[0].name} oyuncusunda.` });
   touch(room);
@@ -498,7 +512,7 @@ function endTurn(room, playerId) {
   if (player.money < 0) throw new Error('Önce borcunu kapat veya iflas et.');
   if (room.phase === 'purchase') room.phase = 'resolved';
   if (room.extraTurn && !player.inJail && !player.bankrupt) {
-    room.phase = 'roll'; room.lastRoll = null; room.extraTurn = false;
+    room.phase = 'roll'; room.lastRoll = null; room.extraTurn = false; room.buildsThisTurn = 0;
     log(room, `${player.name} çift zar attığı için yeniden oynuyor.`, 'turn');
   } else {
     const players = activePlayers(room);
@@ -507,6 +521,7 @@ function endTurn(room, playerId) {
     room.turnPlayerId = next.id;
     room.turnNumber += 1;
     room.phase = 'roll'; room.lastRoll = null; room.extraTurn = false; room.doublesCount = 0;
+    room.buildsThisTurn = 0;
     log(room, `Sıra ${next.name} oyuncusunda.`, 'turn');
   }
   touch(room);
@@ -520,13 +535,19 @@ function skipDisconnected(room, hostPlayerId) {
   const index = players.findIndex(player => player.id === current.id);
   const next = players[(index + 1) % players.length];
   room.turnPlayerId = next.id; room.turnNumber += 1; room.phase = 'roll';
-  room.lastRoll = null; room.extraTurn = false; room.doublesCount = 0; room.auction = null;
+  room.lastRoll = null; room.extraTurn = false; room.doublesCount = 0; room.auction = null; room.buildsThisTurn = 0;
   log(room, `${current.name} çevrimdışı olduğu için sıra ${next.name} oyuncusuna geçti.`, 'turn');
   touch(room);
 }
 function validateBuild(room, player, index, selling = false) {
   const tile = board[index], asset = room.assets[String(index)];
-  if (!tile || tile.type !== 'property' || !asset || asset.ownerId !== player.id) throw new Error('Bu mülkte işlem yapamazsın.');
+  if (!player || player.bankrupt || !tile || tile.type !== 'property' || !asset || asset.ownerId !== player.id) throw new Error('Bu mülkte işlem yapamazsın.');
+  if (!selling) {
+    if (!room.started || room.finished) throw new Error('Oyun aktif değil.');
+    if (room.turnPlayerId !== player.id) throw new Error('Ev sadece sırası gelen oyuncu tarafından kurulabilir.');
+    if (room.auction) throw new Error('Açık artırma sırasında bina kurulamaz.');
+    if ((room.buildsThisTurn || 0) >= MAX_BUILDS_PER_TURN) throw new Error(`Bir turda en fazla ${MAX_BUILDS_PER_TURN} bina kurabilirsin.`);
+  }
   if (asset.mortgaged) throw new Error('İpotekli mülke bina yapılamaz.');
   if (!ownsGroup(room, player.id, tile.group)) throw new Error('Bu renk grubunun tamamına sahip olmalısın.');
   const groupAssets = board.map((t, i) => t.group === tile.group ? room.assets[String(i)] : null).filter(Boolean);
@@ -536,9 +557,9 @@ function validateBuild(room, player, index, selling = false) {
   return { tile, asset };
 }
 function build(room, playerId, index) {
-  const player = playerById(room, playerId), { tile, asset } = validateBuild(room, player, Number(index));
+  const player = assertTurn(room, playerId), { tile, asset } = validateBuild(room, player, Number(index));
   if (player.money < tile.buildCost) throw new Error('Yeterli paran yok.');
-  player.money -= tile.buildCost; asset.level += 1;
+  player.money -= tile.buildCost; asset.level += 1; room.buildsThisTurn = (room.buildsThisTurn || 0) + 1;
   log(room, `${player.name}, ${tile.name} üzerine ${asset.level === 5 ? 'otel' : `${asset.level}. evi`} kurdu.`, 'build'); touch(room);
   return notify(room, {
     kind:'build', title:'Yatırım Yapıldı', cardTitle:`${tile.name} geliştirildi`,
@@ -597,8 +618,9 @@ function proposeTrade(room, playerId, data) {
   if (!from || !to || from.bankrupt || to.bankrupt || from.id === to.id) throw new Error('Geçersiz takas hedefi.');
   const offerCash = Math.max(0, Math.round(Number(data.offerCash) || 0));
   const requestCash = Math.max(0, Math.round(Number(data.requestCash) || 0));
-  if (from.money < offerCash) throw new Error('Teklif ettiğin nakit yetersiz.');
-  if (to.money < requestCash) throw new Error('Karşı oyuncunun nakdi yetersiz.');
+  // Eksi bakiyedeki oyuncu nakit sunmadığı sürece mülkünü takasla satabilir.
+  if (offerCash > 0 && from.money < offerCash) throw new Error('Teklif ettiğin nakit yetersiz.');
+  if (requestCash > 0 && to.money < requestCash) throw new Error('Karşı oyuncunun nakdi yetersiz.');
   const offerAssets = [...new Set((data.offerAssets || []).map(Number))];
   const requestAssets = [...new Set((data.requestAssets || []).map(Number))];
   if (!offerAssets.every(i => room.assets[String(i)]?.ownerId === from.id) || !requestAssets.every(i => room.assets[String(i)]?.ownerId === to.id)) throw new Error('Takas mülkleri artık geçerli değil.');
@@ -623,7 +645,7 @@ function respondTrade(room, playerId, tradeId, accept) {
     touch(room);
     return notification;
   }
-  if (!from || !to || from.money < trade.offerCash || to.money < trade.requestCash) throw new Error('Takas koşulları artık geçerli değil.');
+  if (!from || !to || (trade.offerCash > 0 && from.money < trade.offerCash) || (trade.requestCash > 0 && to.money < trade.requestCash)) throw new Error('Takas koşulları artık geçerli değil.');
   if (!trade.offerAssets.every(i => room.assets[String(i)]?.ownerId === from.id) || !trade.requestAssets.every(i => room.assets[String(i)]?.ownerId === to.id)) throw new Error('Takas mülkleri artık geçerli değil.');
   transfer(from, to, trade.offerCash); transfer(to, from, trade.requestCash);
   trade.offerAssets.forEach(i => { room.assets[String(i)].ownerId = to.id; });
@@ -651,7 +673,7 @@ function eliminatePlayer(room, player, reason = 'bankrupt') {
       if (!candidate.bankrupt) { next = candidate; break; }
     }
     room.turnPlayerId = next.id; room.turnNumber += 1; room.lastRoll = null;
-    room.phase = 'roll'; room.extraTurn = false; room.doublesCount = 0;
+    room.phase = 'roll'; room.extraTurn = false; room.doublesCount = 0; room.buildsThisTurn = 0;
     log(room, `Sıra ${next.name} oyuncusunda.`, 'turn');
   }
   touch(room);
@@ -686,7 +708,7 @@ function leaveRoom(room, playerId) {
 }
 
 module.exports = {
-  COLORS, START_MONEY, board, chanceCards, chestCards, cleanName, createRoom, addPlayer,
+  COLORS, START_MONEY, MAX_BUILDS_PER_TURN, board, chanceCards, chestCards, cleanName, createRoom, addPlayer,
   publicState, playerById, activePlayers, ownsGroup, calculateRent, startGame, roll,
   payJail, buy, startAuction, auctionBid, auctionPass, finishAuctionIfReady, endTurn,
   skipDisconnected,

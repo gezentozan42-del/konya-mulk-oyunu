@@ -92,7 +92,7 @@
 
       <aside class="control-column">
         <nav class="panel-tabs" aria-label="Oyun panelleri">
-          <button class="active" data-panel="play">Oyun</button><button data-panel="assets">Mülkler</button><button data-panel="social">Masa</button>
+          <button class="active" data-panel="play">Oyun</button><button data-panel="assets">Mülkler</button><button data-panel="trade">Takas</button><button data-panel="social">Masa</button>
         </nav>
 
         <div id="playPanel" class="panel-page active">
@@ -117,8 +117,12 @@
 
         <div id="assetsPanel" class="panel-page">
           <section class="surface"><div class="surface-head"><h3>Mülk Portföyüm</h3><span id="portfolioValue">₺0</span></div><div id="myAssets" class="asset-list"></div></section>
+        </div>
+
+        <div id="tradePanel" class="panel-page">
           <section class="surface trade-surface">
             <div class="surface-head"><h3>Takas Teklifi</h3><span>Güvenli değişim</span></div>
+            <p class="trade-note">Eksi bakiyedeysen mülkünü takas ederek borcunu kapatabilirsin.</p>
             <label>Oyuncu<select id="tradeTarget"></select></label>
             <div class="two-col"><label>Vereceğim nakit<input id="offerCash" type="number" min="0" value="0"></label><label>İstediğim nakit<input id="requestCash" type="number" min="0" value="0"></label></div>
             <p>Vereceğim mülkler</p><div id="offerAssets" class="checks"></div>

@@ -12,6 +12,7 @@ const GROUP_COLORS = {
   'Selçuklu Kuzey':'#ef4444','Kampüs Çevresi':'#84cc16','Meram Güney':'#14b8a6','Selçuklu Merkez':'#6366f1',station:'#94a3b8',utility:'#c084fc'
 };
 const PLAYER_COLORS = ['#58a6ff','#ff6b6b','#a878ff','#f6c453','#45d483'];
+const MAX_BUILDS_PER_TURN = 3;
 const PIP_MAP = {1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 const TILE_ICONS = {start:'➜',property:'⌂',station:'◆',utility:'⚡',tax:'₺',chance:'?',chest:'▣',jail:'◷',freeParking:'♨',goToJail:'!'};
 const CARD_ICONS = {chance:'?',chest:'▣',winner:'♛',system:'◆',trade:'⇄',jail:'!',buy:'₺',rent:'↔',money:'₺',build:'⌂',mortgage:'₺',sell:'₺',leave:'↩',auction:'◆'};
@@ -135,14 +136,25 @@ function renderPlayers() {
   E.playerCount.textContent = `${state.players.length} / 5`;
   E.players.innerHTML = state.players.map(item => {
     const netWorth = item.money + assetEntries(item.id).reduce((total, entry) => total + (entry.tile.price || 0) + (entry.asset.level || 0) * (entry.tile.buildCost || 0), 0);
-    return `<div class="player-row ${item.id === state.turnPlayerId && state.started ? 'turn' : ''} ${item.id === myPlayerId ? 'me' : ''}" style="--player-color:${PLAYER_COLORS[item.color]}"><div class="player-main"><i class="player-orb"></i><div class="player-name"><b>${esc(item.name)}${item.id === myPlayerId ? ' · SEN' : ''}</b><small>${item.bankrupt ? 'İflas etti' : item.inJail ? `Hapiste ${item.jailTurns}/3` : `${propertyCount(item.id)} mülk · Değer ${money(netWorth)}`}</small></div><span class="player-money">${money(item.money)}</span></div><i class="online-dot ${item.connected ? 'on' : ''}"></i></div>`;
+    const protection = item.rentImmunity > 0 ? ` · 🛡️ ${item.rentImmunity} kira hakkı` : '';
+    const status = item.bankrupt ? 'İflas etti' : item.inJail ? `Hapiste ${item.jailTurns}/3` : `${propertyCount(item.id)} mülk · Değer ${money(netWorth)}${protection}`;
+    return `<div class="player-row ${item.id === state.turnPlayerId && state.started ? 'turn' : ''} ${item.id === myPlayerId ? 'me' : ''}" style="--player-color:${PLAYER_COLORS[item.color]}"><div class="player-main"><i class="player-orb"></i><div class="player-name"><b>${esc(item.name)}${item.id === myPlayerId ? ' · SEN' : ''}</b><small>${status}</small></div><span class="player-money">${money(item.money)}</span></div><i class="online-dot ${item.connected ? 'on' : ''}"></i></div>`;
   }).join('');
 }
 function renderAssets() {
   const entries = assetEntries(myPlayerId);
   const value = entries.reduce((total, entry) => total + Math.floor((entry.tile.price || 0) / 2) + (entry.asset.level || 0) * Math.floor((entry.tile.buildCost || 0) / 2), 0);
+  const buildsUsed = Math.max(0, Number(state.buildsThisTurn) || 0), buildsLeft = Math.max(0, MAX_BUILDS_PER_TURN - buildsUsed);
+  const canBuildThisTurn = state.started && !state.finished && state.turnPlayerId === myPlayerId;
   E.portfolioValue.textContent = money(value);
-  E.myAssets.innerHTML = entries.length ? entries.map(({ index, asset, tile }) => `<article class="asset-card" style="--asset-color:${groupColor(tile)}"><div class="asset-card-head"><div><h4>${esc(tile.name)}</h4><small>${esc(tile.group || (tile.type === 'station' ? 'Ulaşım' : 'Hizmet'))} · ${asset.mortgaged ? `İpotekli · Banka ${money(Math.floor(tile.price / 2))}` : asset.level === 5 ? 'Otel' : asset.level ? `${asset.level} ev` : 'Arsa'}</small></div><b>${money(tile.price)}</b></div><div class="asset-actions">${tile.type === 'property' && !asset.mortgaged ? `<button data-action="build" data-index="${index}">+ Ev/Otel</button><button data-action="sell-building" data-index="${index}">− Bina</button>` : ''}${asset.mortgaged ? `<button data-action="unmortgage" data-index="${index}">İpoteği kaldır</button><button class="bank-sale" data-action="sell-to-bank" data-index="${index}">Bankaya sat +${money(Math.floor(tile.price / 2))}</button>` : `<button data-action="mortgage" data-index="${index}">İpotek et</button>`}</div></article>`).join('') : '<div class="empty-state">Henüz bir mülkün yok.<br>Tahtada boş bir mülke geldiğinde satın alabilirsin.</div>';
+  E.myAssets.innerHTML = entries.length ? entries.map(({ index, asset, tile }) => {
+    const canBuild = canBuildThisTurn && buildsLeft > 0 && asset.level < 5;
+    const buildTitle = canBuildThisTurn ? (buildsLeft > 0 ? `Bu tur ${buildsLeft} bina hakkın kaldı.` : 'Bu tur 3 bina hakkını kullandın.') : 'Sadece kendi sıranda bina kurabilirsin.';
+    const buildButton = tile.type === 'property' && !asset.mortgaged && asset.level < 5
+      ? `<button data-action="build" data-index="${index}" ${canBuild ? '' : 'disabled'} title="${buildTitle}">+ Ev/Otel${canBuild ? ` (${buildsLeft})` : ''}</button><button data-action="sell-building" data-index="${index}">− Bina</button>`
+      : '';
+    return `<article class="asset-card" style="--asset-color:${groupColor(tile)}"><div class="asset-card-head"><div><h4>${esc(tile.name)}</h4><small>${esc(tile.group || (tile.type === 'station' ? 'Ulaşım' : 'Hizmet'))} · ${asset.mortgaged ? `İpotekli · Banka ${money(Math.floor(tile.price / 2))}` : asset.level === 5 ? 'Otel' : asset.level ? `${asset.level} ev` : 'Arsa'}</small></div><b>${money(tile.price)}</b></div><div class="asset-actions">${buildButton}${asset.mortgaged ? `<button data-action="unmortgage" data-index="${index}">İpoteği kaldır</button><button class="bank-sale" data-action="sell-to-bank" data-index="${index}">Bankaya sat +${money(Math.floor(tile.price / 2))}</button>` : `<button data-action="mortgage" data-index="${index}">İpotek et</button>`}</div></article>`;
+  }).join('') : '<div class="empty-state">Henüz bir mülkün yok.<br>Tahtada boş bir mülke geldiğinde satın alabilirsin.</div>';
   E.myAssets.querySelectorAll('button').forEach(button => button.addEventListener('click', () => {
     const index = Number(button.dataset.index);
     if (button.dataset.action === 'sell-to-bank') {
@@ -159,7 +171,8 @@ function renderTrade() {
   const targetId = E.tradeTarget.value;
   const checks = entries => entries.map(({ index, tile }) => `<label class="trade-asset" style="--asset-color:${groupColor(tile)}"><input type="checkbox" value="${index}"><span class="trade-asset-copy"><i class="trade-swatch"></i><span><b>${esc(tile.name)}</b><small>${esc(groupLabel(tile))} · ${money(tile.price)}</small></span></span></label>`).join('') || '<span class="empty-state">Mülk yok</span>';
   E.offerAssets.innerHTML = checks(assetEntries(myPlayerId)); E.requestAssets.innerHTML = checks(assetEntries(targetId));
-  E.tradeBtn.disabled = !targetId;
+  E.tradeBtn.disabled = !targetId || Boolean(my()?.bankrupt);
+  E.tradeBtn.title = my()?.money < 0 ? 'Eksi bakiyedeyken mülkünü takas ederek borcunu kapatabilirsin.' : 'Mülk ve nakit karşılığında teklif gönder.';
 }
 function renderAuction() {
   const auction = state.auction;

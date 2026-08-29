@@ -110,6 +110,22 @@ test('kişisel kartın ödül veya cezası kartı açan oyuncuya uygulanır', ()
   assert.match(penalty.message, /Murat/);
 });
 
+test('Şans kartı bir sonraki kira için tek kullanımlık dokunulmazlık verir', () => {
+  const { room, first, second } = roomWithTwo();
+  const cardIndex = game.chanceCards.findIndex(card => card.action === 'rentImmunity');
+  const cardNotification = game.applyCard(room, first, 'chance', () => (cardIndex + 0.1) / game.chanceCards.length);
+  assert.equal(cardNotification.cardTitle, 'Kira Dokunulmazlığı');
+  assert.equal(first.rentImmunity, 1);
+
+  room.assets['3'] = { ownerId: second.id, level: 0, mortgaged: false };
+  first.pos = 3; room.lastRoll = [1, 2];
+  const rentNotification = game.resolveLanding(room, first);
+  assert.equal(first.money, 1500);
+  assert.equal(second.money, 1500);
+  assert.equal(first.rentImmunity, 0);
+  assert.equal(rentNotification.cardTitle, 'Ahmet kira ödemedi');
+});
+
 test('beş arkadaşın tamamı için kişisel kart bulunur', () => {
   const titles = [...game.chanceCards, ...game.chestCards].map(card => card.title).join(' ');
   for (const name of ['Ahmet', 'Tuğba', 'Merve', 'Murat', 'Seher']) assert.match(titles, new RegExp(name));
@@ -123,6 +139,42 @@ test('renk grubu tamamlanmadan bina kurulamaz', () => {
   game.build(room, first.id, 1);
   assert.equal(room.assets['1'].level, 1);
   assert.equal(first.money, 1450);
+});
+
+test('bina yalnızca sıra sahibine ve tur başına en fazla üç kez kurulabilir', () => {
+  const { room, first, second } = roomWithTwo();
+  room.assets['1'] = { ownerId: first.id, level: 0, mortgaged: false };
+  room.assets['3'] = { ownerId: first.id, level: 0, mortgaged: false };
+  room.assets['6'] = { ownerId: second.id, level: 0, mortgaged: false };
+  room.assets['8'] = { ownerId: second.id, level: 0, mortgaged: false };
+  room.assets['9'] = { ownerId: second.id, level: 0, mortgaged: false };
+  first.money = 10000;
+
+  assert.throws(() => game.build(room, second.id, 6), /Sıra sende değil/);
+  game.build(room, first.id, 1);
+  game.build(room, first.id, 3);
+  game.build(room, first.id, 1);
+  assert.equal(room.buildsThisTurn, 3);
+  assert.throws(() => game.build(room, first.id, 3), /en fazla 3/);
+
+  room.lastRoll = [1, 2]; room.phase = 'resolved';
+  game.endTurn(room, first.id);
+  assert.equal(room.buildsThisTurn, 0);
+  assert.equal(room.turnPlayerId, second.id);
+});
+
+test('eksi bakiyedeki oyuncu nakit sunmadan mülk takasıyla borcunu kapatabilir', () => {
+  const { room, first, second } = roomWithTwo();
+  room.assets['1'] = { ownerId: first.id, level: 0, mortgaged: false };
+  first.money = -100;
+  const trade = game.proposeTrade(room, first.id, {
+    toId: second.id, offerCash: 0, requestCash: 150, offerAssets: [1], requestAssets: []
+  });
+  const notification = game.respondTrade(room, second.id, trade.id, true);
+  assert.equal(first.money, 50);
+  assert.equal(second.money, 1350);
+  assert.equal(room.assets['1'].ownerId, second.id);
+  assert.equal(notification.kind, 'trade');
 });
 
 test('ipotekli tapu bankaya satılır ve ipotek bedeli ödenir', () => {

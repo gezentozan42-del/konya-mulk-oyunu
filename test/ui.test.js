@@ -57,3 +57,18 @@ test('telefon yazıları okunabilir ölçeğe çıkarılır', () => {
   assert.match(css, /\.tile strong\{font-size:clamp\(6\.8px,2\.1vw,9px\)/);
   assert.match(css, /\.property-modal \.property-card-top h3\{font-size:20px\}/);
 });
+
+test('takas ayrı sekmede ve eksi bakiye için açık tutulur', () => {
+  assert.match(html, /data-panel="trade">Takas/);
+  assert.match(html, /id="tradePanel"/);
+  assert.doesNotMatch(html.match(/id="assetsPanel"[\s\S]*?<\/div>\s*<div id="tradePanel"/)?.[0] || '', /trade-surface/);
+  assert.match(app, /offerCash/);
+  assert.match(app, /E\.tradeBtn\.disabled = !targetId \|\| Boolean\(my\(\)\?\.bankrupt\)/);
+});
+
+test('kira dokunulmazlığı ve tur başı bina limiti arayüzde görünür', () => {
+  assert.match(app, /rentImmunity/);
+  assert.match(app, /MAX_BUILDS_PER_TURN = 3/);
+  assert.match(app, /Sadece kendi sıranda bina kurabilirsin/);
+  assert.match(css, /\.panel-tabs\{grid-template-columns:repeat\(4,1fr\)\}/);
+});
