@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>Konya Mülk Oyunu — 40 Kare</title>
+<style>
+:root{--bg:#08101d;--panel:#111a2a;--card:#152238;--line:#2b3b56;--text:#f5f7fb;--muted:#aab8ce;--accent:#60d394;--gold:#f6c453;--danger:#ff7b7b}
+*{box-sizing:border-box}html{background:var(--bg)}body{margin:0;color:var(--text);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(160deg,#07101c,#101c31)}
+button,input,select{font:inherit}button{min-height:44px;border:0;border-radius:12px;padding:10px 13px;font-weight:800;background:var(--accent);color:#062316;cursor:pointer}
+button.secondary{background:#263750;color:var(--text)}button.warn{background:var(--gold);color:#332400}button.danger{background:var(--danger);color:#300707}button:disabled{opacity:.42;cursor:not-allowed}
+input,select{min-height:45px;width:100%;border:1px solid var(--line);border-radius:11px;background:#0b1525;color:var(--text);padding:9px 11px;font-size:16px}
+.wrap{max-width:1280px;margin:auto;padding:12px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}h1{font-size:21px;margin:0}.badge{border:1px solid var(--line);padding:7px 10px;border-radius:999px;color:var(--muted);background:#0f1929}
+.panel{background:rgba(17,26,42,.95);border:1px solid var(--line);border-radius:17px;padding:13px;margin-top:12px}.muted,.status{color:var(--muted);font-size:13px}.hidden{display:none!important}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1 1 130px}.lobby{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.game{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,.78fr);gap:12px;align-items:start}.boardScroll{overflow:auto;padding-bottom:4px}
+.board{min-width:760px;aspect-ratio:1/1;display:grid;grid-template-columns:repeat(11,1fr);grid-template-rows:repeat(11,1fr);gap:3px;background:#0c1524;border:1px solid var(--line);border-radius:16px;padding:4px}
+.tile{min-width:0;min-height:0;border:1px solid #30415f;border-radius:7px;background:#121e31;padding:4px;position:relative;overflow:hidden}.tile strong{display:block;font-size:9px;line-height:1.1}.tile small{display:block;color:var(--muted);font-size:8px;line-height:1.1;margin-top:2px}
+.tile .band{position:absolute;left:0;right:0;top:0;height:4px}.tile .house{font-size:9px}.tile.current{outline:2px solid var(--gold);outline-offset:-2px}
+.center{grid-row:2/11;grid-column:2/11;border:1px dashed #344969;border-radius:14px;padding:16px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:radial-gradient(circle,#17263e,#0e1829)}.center h2{font-size:32px;margin:0}.center .dice{font-size:30px;margin:8px}
+.tokens{display:flex;gap:2px;flex-wrap:wrap;margin-top:4px}.token{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:8px;font-weight:900;border:1px solid rgba(255,255,255,.75)}.p0{background:#66b3ff}.p1{background:#ff9a9a}.p2{background:#cf91ff}.p3{background:#ffd866;color:#332b00}.p4{background:#66d99a;color:#062619}
+.players{display:grid;gap:7px}.player{padding:9px;border-radius:12px;border:1px solid var(--line);background:#0d1828}.player.turn{border-color:var(--gold)}.player.me{box-shadow:inset 0 0 0 1px var(--accent)}.money{font-size:18px;font-weight:900}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.actions button{flex:1 1 105px}.assetGrid{display:grid;gap:7px}.asset{padding:8px;border:1px solid var(--line);border-radius:11px;background:#0d1828}.asset .mini{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.asset .mini button{min-height:34px;padding:6px 8px;font-size:12px}
+.log,.chat{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:11px;background:#0b1525;padding:7px;font-size:12px}.log div,.chat div{padding:4px 0;border-bottom:1px dashed #233550}
+.auction{border:1px solid var(--gold);background:#211c0c;border-radius:12px;padding:10px}.tradeIncoming{border:1px solid var(--accent);padding:10px;border-radius:12px;background:#0d221b}.checks{display:grid;grid-template-columns:1fr 1fr;gap:5px}.checks label{display:flex;gap:6px;align-items:center;font-size:12px}.checks input{width:auto;min-height:auto}
+.group-Selçuklu-I{background:#9b7653}.group-Selçuklu-II{background:#69a8c9}.group-Meram-I{background:#d98aa6}.group-Karatay-I{background:#df8a43}.group-Merkez-I{background:#d64f4f}.group-Karatay-II{background:#e6cf55}.group-Merkez-II{background:#58a96b}.group-Prestij{background:#355a9b}.group-station{background:#777}.group-utility{background:#6f6f9d}
+@media(max-width:860px){.game{grid-template-columns:1fr}.lobby{grid-template-columns:1fr}.board{min-width:690px}.center h2{font-size:25px}}
+@media(max-width:430px){.wrap{padding:8px}.panel{padding:10px}.board{min-width:650px}.checks{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>🏠 Konya Mülk Oyunu</h1><span class="badge" id="roomBadge">40 kare • özel oyun</span></div>
+
+  <section class="panel" id="loginPanel">
+    <p><strong>Ahmet • Tuğba • Merve • Murat • Seher</strong><br><span class="muted">Biriniz oda kursun, diğerleri aynı 5 haneli kodla telefondan katılsın.</span></p>
+    <div class="lobby">
+      <div><label>Adın</label><input id="name" maxlength="18" placeholder="Örn. Ahmet"></div>
+      <div><label>Oda kodu</label><input id="code" maxlength="5" placeholder="KNY42" autocapitalize="characters"></div>
+    </div>
+    <div class="actions"><button id="createBtn">Yeni oda kur</button><button class="secondary" id="joinBtn">Odaya katıl</button></div>
+    <p class="status" id="loginStatus">Oyun 2–5 kişi çalışır. Aynı cihazdan bağlantın koparsa otomatik geri dönüş kaydı tutulur.</p>
+  </section>
+
+  <section id="roomPanel" class="hidden">
+    <div class="panel top">
+      <div><strong>Oda <span id="roomCode"></span></strong><div class="status" id="turnText"></div></div>
+      <div class="row" style="flex:0 1 auto">
+        <button class="secondary" id="shareBtn">📤 Davet</button>
+        <button class="secondary" id="voiceBtn">🎙️ Sese katıl</button>
+        <button class="secondary hidden" id="muteBtn">🔇 Mikrofon</button>
+      </div>
+    </div>
+
+    <div class="game">
+      <div>
+        <div class="panel boardScroll">
+          <div class="board" id="board">
+            <div class="center">
+              <h2>KONYA</h2><div>MÜLK OYUNU</div>
+              <div class="dice" id="dice">🎲 🎲</div>
+              <strong id="centerTurn">Lobi</strong>
+              <span class="status">Çay bahçesi kasası: <b id="pot">₺0</b></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <strong>İşlemler</strong>
+          <div id="tileInfo" class="status" style="margin-top:5px"></div>
+          <div class="actions">
+            <button id="startBtn" class="hidden">Oyunu başlat</button>
+            <button id="payJailBtn" class="hidden warn">₺50 öde, çık</button>
+            <button id="rollBtn" class="hidden">🎲 Zar at</button>
+            <button id="buyBtn" class="hidden">🏠 Satın al</button>
+            <button id="auctionBtn" class="hidden warn">🔨 Açık artır</button>
+            <button id="endBtn" class="hidden secondary">Sırayı bitir</button>
+            <button id="bankruptBtn" class="hidden danger">İflas et</button>
+          </div>
+          <div id="auctionBox" class="auction hidden"></div>
+          <div id="incomingTrade" class="tradeIncoming hidden"></div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="panel"><strong>Oyuncular</strong><div class="players" id="players"></div></div>
+
+        <details class="panel" open>
+          <summary><strong>Mülklerim / bina / ipotek</strong></summary>
+          <div id="myAssets" class="assetGrid" style="margin-top:8px"></div>
+        </details>
+
+        <details class="panel">
+          <summary><strong>Takas</strong></summary>
+          <div style="margin-top:8px">
+            <label>Oyuncu</label><select id="tradeTarget"></select>
+            <div class="row" style="margin-top:6px">
+              <div><label>Benim nakit teklifim</label><input id="offerCash" type="number" min="0" value="0"></div>
+              <div><label>İstediğim nakit</label><input id="requestCash" type="number" min="0" value="0"></div>
+            </div>
+            <p class="status">Vereceğim mülkler</p><div id="offerAssets" class="checks"></div>
+            <p class="status">İstediğim mülkler</p><div id="requestAssets" class="checks"></div>
+            <button id="tradeBtn" style="width:100%;margin-top:8px">Teklif gönder</button>
+          </div>
+        </details>
+
+        <details class="panel" open>
+          <summary><strong>Grup sohbeti</strong></summary>
+          <div id="chat" class="chat" style="margin-top:8px"></div>
+          <form id="chatForm" class="row" style="margin-top:7px"><input id="chatInput" maxlength="300" placeholder="Mesaj yaz…"><button>Gönder</button></form>
+        </details>
+
+        <details class="panel">
+          <summary><strong>Oyun akışı</strong></summary>
+          <div id="log" class="log" style="margin-top:8px"></div>
+        </details>
+      </aside>
+    </div>
+  </section>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket=io();
+let state=null,myPlayerId=null,resumeToken=null,roomCode=null,localStream=null,micMuted=false,iceServers=null;
+const peers=new Map(),$=id=>document.getElementById(id);
+const E=Object.fromEntries(["loginPanel","roomPanel","name","code","createBtn","joinBtn","loginStatus","roomBadge","roomCode","turnText","shareBtn","voiceBtn","muteBtn","board","dice","centerTurn","pot","tileInfo","startBtn","payJailBtn","rollBtn","buyBtn","auctionBtn","endBtn","bankruptBtn","auctionBox","incomingTrade","players","myAssets","tradeTarget","offerCash","requestCash","offerAssets","requestAssets","tradeBtn","chat","chatForm","chatInput","log"].map(id=>[id,$(id)]));
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]))}
+function money(n){return "₺"+Math.round(Number(n)||0)}
+function saveSession(data){localStorage.setItem("konyaMulkSession",JSON.stringify(data))}
+function loadSession(){try{return JSON.parse(localStorage.getItem("konyaMulkSession")||"null")}catch(e){return null}}
+function enter(code){roomCode=code;E.loginPanel.classList.add("hidden");E.roomPanel.classList.remove("hidden");E.roomCode.textContent=code;E.roomBadge.textContent="Oda "+code;history.replaceState(null,"","?room="+encodeURIComponent(code))}
+function authDone(r,name){myPlayerId=r.playerId;resumeToken=r.resumeToken||resumeToken;enter(r.code);saveSession({code:r.code,resumeToken,name:name||r.name||""})}
+
+E.code.addEventListener("input",e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""));
+E.createBtn.addEventListener("click",()=>{const name=E.name.value.trim();if(!name)return E.loginStatus.textContent="Önce adını yaz.";socket.emit("create-room",{name},r=>r?.ok?authDone(r,name):E.loginStatus.textContent=r?.error||"Oda kurulamadı.")});
+E.joinBtn.addEventListener("click",()=>{const name=E.name.value.trim(),code=E.code.value.trim().toUpperCase();if(!name||code.length!==5)return E.loginStatus.textContent="Adını ve 5 haneli oda kodunu yaz.";socket.emit("join-room",{name,code},r=>r?.ok?authDone(r,name):E.loginStatus.textContent=r?.error||"Katılım olmadı.")});
+
+socket.on("connect",()=>{
+  const s=loadSession(),q=new URLSearchParams(location.search).get("room");
+  if(s?.resumeToken && s?.code && (!q||q===s.code)){
+    resumeToken=s.resumeToken;
+    socket.emit("resume-room",{code:s.code,resumeToken:s.resumeToken},r=>{
+      if(r?.ok){myPlayerId=r.playerId;enter(r.code)}
+      else if(q)E.code.value=q;
+    });
+  }else if(q)E.code.value=q;
+});
+socket.on("state",s=>{state=s;render()});
+
+function gridPos(i){
+  if(i<=10)return [11,11-i];
+  if(i<=20)return [21-i,1];
+  if(i<=30)return [1,i-19];
+  return [i-29,11];
+}
+function bandClass(t){
+  if(t.group)return "group-"+t.group.replaceAll(" ","-");
+  if(t.type==="station")return"group-station";if(t.type==="utility")return"group-utility";return"";
+}
+function my(){return state?.players.find(p=>p.id===myPlayerId)}
+function ownerName(id){return state?.players.find(p=>p.id===id)?.name||"?"}
+function isBuyable(t){return["property","station","utility"].includes(t?.type)}
+function assetEntriesFor(ownerId){return Object.entries(state?.assets||{}).filter(([i,a])=>a.ownerId===ownerId).map(([i,a])=>({i:Number(i),a,t:state.board[Number(i)]}))}
+
+function render(){
+  if(!state)return;
+  const me=my(),cur=state.players.find(p=>p.id===state.turnPlayerId),myTurn=state.started&&cur?.id===myPlayerId&&!me?.bankrupt;
+  E.turnText.textContent=state.started?("Sıra: "+(cur?.name||"-")):`${state.players.length}/5 oyuncu lobide`;
+  E.centerTurn.textContent=state.winnerId?("🏆 "+ownerName(state.winnerId)):state.started?("Sıra: "+(cur?.name||"-")):"Oyuncular bekleniyor";
+  E.pot.textContent=money(state.freeParkingPot);
+  E.dice.textContent=state.lastRoll?`${die(state.lastRoll[0])} ${die(state.lastRoll[1])}`:"🎲 🎲";
+
+  E.startBtn.classList.toggle("hidden",state.started||state.hostPlayerId!==myPlayerId);E.startBtn.disabled=state.players.length<2;
+  E.rollBtn.classList.toggle("hidden",!state.started);E.rollBtn.disabled=!myTurn||!!state.lastRoll||!!state.auction;
+  E.endBtn.classList.toggle("hidden",!state.started);E.endBtn.disabled=!myTurn||!state.lastRoll||!!state.auction;
+  E.payJailBtn.classList.toggle("hidden",!(myTurn&&me?.inJail&&!state.lastRoll));E.payJailBtn.disabled=(me?.money||0)<50;
+
+  const tile=me?state.board[me.pos]:null,a=me?state.assets[String(me.pos)]:null;
+  const canBuy=myTurn&&!!state.lastRoll&&!state.auction&&isBuyable(tile)&&!a&&(me.money>=tile.price);
+  E.buyBtn.classList.toggle("hidden",!canBuy);
+  const canAuction=myTurn&&!!state.lastRoll&&!state.auction&&isBuyable(tile)&&!a;
+  E.auctionBtn.classList.toggle("hidden",!canAuction);
+  E.bankruptBtn.classList.toggle("hidden",!(me&&me.money<0&&!me.bankrupt));
+  E.tileInfo.innerHTML=me?`Bulunduğun kare: <b>${esc(tile.name)}</b>${isBuyable(tile)?` • ${a?("Sahibi: "+esc(ownerName(a.ownerId))):("Fiyat: "+money(tile.price))}`:""}${me.inJail?" • Trafik beklemesindesin":""}`:"";
+
+  renderBoard();renderPlayers();renderAssets();renderTrade();renderAuction();renderIncoming();renderChat();renderLog();
+}
+function die(n){return["","⚀","⚁","⚂","⚃","⚄","⚅"][n]||"🎲"}
+function renderBoard(){
+  E.board.querySelectorAll(".tile").forEach(x=>x.remove());
+  state.board.forEach((t,i)=>{
+    const d=document.createElement("div"),[r,c]=gridPos(i),a=state.assets[String(i)],on=state.players.filter(p=>p.pos===i&&!p.bankrupt);
+    d.className="tile"+(state.turnPlayerId&&state.players.find(p=>p.id===state.turnPlayerId)?.pos===i?" current":"");
+    d.style.gridRow=r;d.style.gridColumn=c;
+    const level=a?.level||0,build=level?`<div class="house">${level===5?"🏨":"🏠".repeat(Math.min(4,level))}</div>`:"";
+    const sub=isBuyable(t)?money(t.price):(t.amount?("-"+money(t.amount)):(t.text||t.type));
+    d.innerHTML=`${bandClass(t)?`<span class="band ${bandClass(t)}"></span>`:""}<strong>${i}. ${esc(t.name)}</strong><small>${esc(sub)}</small>${build}<div class="tokens">${on.map(p=>`<span class="token p${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span>`).join("")}</div>${a?`<small>${a.mortgaged?"🔒 İpotek":"👤 "+esc(ownerName(a.ownerId))}</small>`:""}`;
+    E.board.appendChild(d);
+  });
+}
+function renderPlayers(){
+  E.players.innerHTML=state.players.map(p=>`<div class="player ${p.id===myPlayerId?"me":""} ${p.id===state.turnPlayerId&&state.started?"turn":""}">
+    <div><span class="token p${p.color}">${esc(p.name.slice(0,1).toUpperCase())}</span> <strong>${esc(p.name)}</strong> ${p.connected?"":"<span class=muted>• çevrimdışı</span>"}</div>
+    <div class="money">${money(p.money)}</div><div class="status">${p.bankrupt?"İflas":p.inJail?`Trafik bekleme (${p.jailTurns}/3)`:assetEntriesFor(p.id).length+" mülk"}</div></div>`).join("");
+}
+function renderAssets(){
+  if(!myPlayerId)return;
+  const list=assetEntriesFor(myPlayerId);
+  E.myAssets.innerHTML=list.length?list.map(({i,a,t})=>`<div class=asset><strong>${esc(t.name)}</strong> <span class=muted>${a.mortgaged?"• ipotekli":""} ${a.level?("• "+(a.level===5?"otel":a.level+" ev")):""}</span>
+    <div class=mini>
+    ${t.type==="property"?`<button data-act=build data-i=${i}>+ Ev/Otel</button><button class=secondary data-act=sell data-i=${i}>- Bina</button>`:""}
+    ${a.mortgaged?`<button class=secondary data-act=unmortgage data-i=${i}>İpoteği kaldır</button>`:`<button class=secondary data-act=mortgage data-i=${i}>İpotek</button>`}
+    </div></div>`).join(""):"<span class=muted>Henüz mülkün yok.</span>";
+  E.myAssets.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{const i=Number(b.dataset.i),act=b.dataset.act;socket.emit(act==="sell"?"sell-building":act,{index:i})}));
+}
+function renderTrade(){
+  const others=state.players.filter(p=>p.id!==myPlayerId&&!p.bankrupt),old=E.tradeTarget.value;
+  E.tradeTarget.innerHTML=others.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("");
+  if(others.some(p=>p.id===old))E.tradeTarget.value=old;
+  const target=E.tradeTarget.value;
+  const mine=assetEntriesFor(myPlayerId),theirs=assetEntriesFor(target);
+  E.offerAssets.innerHTML=mine.map(({i,t})=>`<label><input type=checkbox value=${i}> ${esc(t.name)}</label>`).join("")||"<span class=muted>Yok</span>";
+  E.requestAssets.innerHTML=theirs.map(({i,t})=>`<label><input type=checkbox value=${i}> ${esc(t.name)}</label>`).join("")||"<span class=muted>Yok</span>";
+  E.tradeBtn.disabled=!target;
+}
+E.tradeTarget.addEventListener("change",()=>state&&renderTrade());
+E.tradeBtn.addEventListener("click",()=>{
+  const toId=E.tradeTarget.value;if(!toId)return;
+  const offerAssets=[...E.offerAssets.querySelectorAll("input:checked")].map(x=>Number(x.value));
+  const requestAssets=[...E.requestAssets.querySelectorAll("input:checked")].map(x=>Number(x.value));
+  socket.emit("trade-propose",{toId,offerCash:Number(E.offerCash.value)||0,requestCash:Number(E.requestCash.value)||0,offerAssets,requestAssets});
+});
+function renderIncoming(){
+  const tr=state.pendingTrades?.find(t=>t.toId===myPlayerId);
+  E.incomingTrade.classList.toggle("hidden",!tr);if(!tr)return;
+  const from=ownerName(tr.fromId),names=arr=>arr.map(i=>state.board[i].name).join(", ")||"—";
+  E.incomingTrade.innerHTML=`<strong>${esc(from)} takas teklif ediyor</strong><div class=status>Veriyor: ${money(tr.offerCash)} + ${esc(names(tr.offerAssets))}<br>İstiyor: ${money(tr.requestCash)} + ${esc(names(tr.requestAssets))}</div><div class=actions><button data-r=yes>Kabul</button><button class=secondary data-r=no>Reddet</button></div>`;
+  E.incomingTrade.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>socket.emit("trade-respond",{tradeId:tr.id,accept:b.dataset.r==="yes"})));
+}
+function renderAuction(){
+  const a=state.auction;E.auctionBox.classList.toggle("hidden",!a);if(!a)return;
+  const passed=a.passed.map(ownerName).join(", ")||"—";
+  E.auctionBox.innerHTML=`<strong>🔨 ${esc(state.board[a.tileIndex].name)}</strong><div class=status>En yüksek: ${money(a.highestBid)} ${a.highestBidderId?"• "+esc(ownerName(a.highestBidderId)):""}<br>Çekilenler: ${esc(passed)}</div><div class=row style="margin-top:7px"><input id=bidAmount type=number min=${a.highestBid+10} value=${a.highestBid+10}><button id=bidBtn>Teklif</button><button class=secondary id=passBtn>Çekil</button></div>`;
+  $("bidBtn").addEventListener("click",()=>socket.emit("auction-bid",{amount:Number($("bidAmount").value)}));
+  $("passBtn").addEventListener("click",()=>socket.emit("auction-pass"));
+}
+function renderChat(){
+  E.chat.innerHTML=(state.chat||[]).slice(-50).map(m=>`<div><b>${esc(m.name)}:</b> ${esc(m.text)}</div>`).join("");
+  E.chat.scrollTop=E.chat.scrollHeight;
+}
+function renderLog(){E.log.innerHTML=(state.log||[]).slice().reverse().map(x=>`<div>${esc(x.msg||x)}</div>`).join("")}
+
+E.startBtn.addEventListener("click",()=>socket.emit("start-game"));
+E.rollBtn.addEventListener("click",()=>socket.emit("roll"));
+E.payJailBtn.addEventListener("click",()=>socket.emit("pay-jail"));
+E.buyBtn.addEventListener("click",()=>socket.emit("buy"));
+E.auctionBtn.addEventListener("click",()=>socket.emit("auction-start"));
+E.endBtn.addEventListener("click",()=>socket.emit("end-turn"));
+E.bankruptBtn.addEventListener("click",()=>{if(confirm("İflas edip oyundan çekilmek istediğine emin misin?"))socket.emit("bankrupt")});
+E.chatForm.addEventListener("submit",e=>{e.preventDefault();const text=E.chatInput.value.trim();if(text){socket.emit("chat",{text});E.chatInput.value=""}});
+E.shareBtn.addEventListener("click",async()=>{
+  const url=location.origin+"?room="+encodeURIComponent(roomCode),text=`Konya Mülk Oyunu oda kodu: ${roomCode}`;
+  try{if(navigator.share)await navigator.share({title:"Konya Mülk Oyunu",text,url});else prompt("Bu bağlantıyı arkadaşlarına gönder:",url)}catch(e){}
+});
+
+// Sesli sohbet
+async function getIce(){if(iceServers)return iceServers;try{const r=await fetch("/api/ice");const d=await r.json();iceServers=d.iceServers||[]}catch(e){iceServers=[{urls:"stun:stun.cloudflare.com:3478"}]}return iceServers}
+async function startVoice(){
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+    await getIce();E.voiceBtn.classList.add("hidden");E.muteBtn.classList.remove("hidden");E.muteBtn.textContent="🔇 Mikrofon";socket.emit("voice-ready");
+  }catch(e){alert("Mikrofon izni verilemedi. Siteyi HTTPS üzerinden açıp mikrofon iznini kontrol et.")}
+}
+E.voiceBtn.addEventListener("click",startVoice);
+E.muteBtn.addEventListener("click",()=>{if(!localStream)return;micMuted=!micMuted;localStream.getAudioTracks().forEach(t=>t.enabled=!micMuted);E.muteBtn.textContent=micMuted?"🎙️ Mikrofonu aç":"🔇 Mikrofon"});
+async function makePeer(id){
+  if(peers.has(id))return peers.get(id);
+  const pc=new RTCPeerConnection({iceServers:await getIce()});
+  localStream?.getTracks().forEach(track=>pc.addTrack(track,localStream));
+  pc.onicecandidate=e=>e.candidate&&socket.emit("webrtc-ice",{to:id,candidate:e.candidate});
+  pc.ontrack=e=>{let a=document.getElementById("audio-"+id);if(!a){a=document.createElement("audio");a.id="audio-"+id;a.autoplay=true;a.playsInline=true;document.body.appendChild(a)}a.srcObject=e.streams[0]};
+  peers.set(id,pc);return pc;
+}
+socket.on("voice-peers",async ids=>{for(const id of ids){const pc=await makePeer(id),offer=await pc.createOffer();await pc.setLocalDescription(offer);socket.emit("webrtc-offer",{to:id,sdp:pc.localDescription})}});
+socket.on("webrtc-offer",async({from,sdp})=>{const pc=await makePeer(from);await pc.setRemoteDescription(sdp);const ans=await pc.createAnswer();await pc.setLocalDescription(ans);socket.emit("webrtc-answer",{to:from,sdp:pc.localDescription})});
+socket.on("webrtc-answer",async({from,sdp})=>{const pc=peers.get(from);if(pc)await pc.setRemoteDescription(sdp)});
+socket.on("webrtc-ice",async({from,candidate})=>{const pc=await makePeer(from);try{await pc.addIceCandidate(candidate)}catch(e){}});
+socket.on("voice-left",id=>{peers.get(id)?.close();peers.delete(id);document.getElementById("audio-"+id)?.remove()});
+</script>
+</body>
+</html>
